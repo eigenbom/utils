@@ -1,0 +1,28 @@
+BasedOnStyle: LLVM
+PointerAlignment: Left
+ColumnLimit: 100
+AllowShortIfStatementsOnASingleLine: false
+# FixNamespaceComments: true
+BraceWrapping:
+  AfterClass:      false
+  AfterControlStatement: false
+  AfterEnum:       false
+  AfterFunction:   false
+  AfterNamespace:  false
+  AfterObjCDeclaration: false
+  AfterStruct:     false
+  AfterUnion:      false
+  BeforeCatch:     true
+  BeforeElse:      true
+  IndentBraces:    false
+AccessModifierOffset: -4
+BreakBeforeBraces: Custom
+IndentCaseLabels: false
+IndentWidth: 4
+TabWidth: 4
+UseTab: ForContinuationAndIndentation
+SortIncludes: true
+SpaceAfterCStyleCast: true
+SpaceBeforeAssignmentOperators: true
+SpaceAfterTemplateKeyword: false
+SpacesInAngles: false
