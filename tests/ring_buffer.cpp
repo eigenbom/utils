@@ -107,6 +107,25 @@ TEST_CASE("ring_buffer construction", "[ring_buffer]"){
         CHECK(ring.count() == 5);        
         CHECK_THAT(ring, Equals(ring, vec));
     }
+
+    SECTION("copy construction"){
+        ring_buffer<int, 8> ring {2, 3, 5, 7, 11};
+        ring_buffer<int, 8> ring2 { ring };
+        CHECK_THAT(ring, Equals(ring, ring2));
+    }
+
+    SECTION("move construction (can compile)"){
+        ring_buffer<std::unique_ptr<int>, 4> ring;
+        ring.emplace_back(new int {42});
+        ring.emplace_back(new int {42});
+        ring_buffer<std::unique_ptr<int>, 4> ring2 { std::move(ring) };
+    }
+
+    SECTION("move construction (correctness)"){
+        ring_buffer<int, 8> ring {2, 3, 5, 7, 11};
+        ring_buffer<int, 8> ring2 { std::move(ring) };
+        CHECK_THAT(ring, Equals(ring, std::vector<int>{2, 3, 5, 7, 11}));
+    }
 }
 
 TEST_CASE("ring_buffer iterator interface", "[ring_buffer]"){
@@ -189,6 +208,12 @@ TEST_CASE("ring_buffer iterator interface", "[ring_buffer]"){
         CHECK(*it == 2); it++;
         CHECK(*it == 1); it++;
         CHECK(it == ring.rend());
+    }
+
+    SECTION("reverse iterator (full)"){
+        ring_buffer<int, 8> ring { 1, 2, 3, 4, 5, 6, 7, 8};
+        CHECK(ring.rbegin() != ring.rend());
+        CHECK(std::distance(ring.rbegin(), ring.rend()) == 8);
     }
 }
 
