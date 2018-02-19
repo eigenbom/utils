@@ -144,6 +144,46 @@ TEST_CASE("ring_buffer iterator interface", "[ring_buffer]"){
         CHECK(ring.begin() != ring.end());
         CHECK(std::distance(ring.begin(), ring.end()) == 4);
     }
+
+    SECTION("iterator"){
+        ring_buffer<int, 8> ring { 1, 2, 3, 4};
+        auto it = ring.begin();
+        CHECK(*it == 1); it++;
+        CHECK(*it == 2); it++;
+        CHECK(*it == 3); it++;
+        CHECK(*it == 4); it++;
+        CHECK(it == ring.end());
+    }
+
+    SECTION("const iterator"){
+        const ring_buffer<int, 8> ring { 1, 2, 3, 4};
+        auto it = ring.begin();
+        CHECK(*it == 1); it++;
+        CHECK(*it == 2); it++;
+        CHECK(*it == 3); it++;
+        CHECK(*it == 4); it++;
+        CHECK(it == ring.end());
+    }
+
+    SECTION("reverse iterator"){
+        ring_buffer<int, 8> ring { 1, 2, 3, 4};
+        auto it = ring.rbegin();
+        CHECK(*it == 4); it++;
+        CHECK(*it == 3); it++;
+        CHECK(*it == 2); it++;
+        CHECK(*it == 1); it++;
+        CHECK(it == ring.rend());
+    }
+
+    SECTION("const reverse iterator"){
+        const ring_buffer<int, 8> ring { 1, 2, 3, 4};
+        auto it = ring.rbegin();
+        CHECK(*it == 4); it++;
+        CHECK(*it == 3); it++;
+        CHECK(*it == 2); it++;
+        CHECK(*it == 1); it++;
+        CHECK(it == ring.rend());
+    }
 }
 
 TEST_CASE("ring_buffer internals", "[ring_buffer]"){

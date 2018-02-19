@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cassert>
+#include <cstddef>
 #include <iterator>
 #include <initializer_list>
 #include <stdexcept>
@@ -31,20 +32,25 @@ public:
     using reference = T&;
 	using const_reference = const T&;
 	using size_type = std::size_t;
+    using difference_type = std::ptrdiff_t;
 
-    class iterator : public std::iterator<std::input_iterator_tag, T> {
+    class iterator : public std::iterator<std::bidirectional_iterator_tag, T> {
     public:
+        using reference = ring_buffer<T, Capacity>::reference;
+        using const_reference = ring_buffer<T, Capacity>::const_reference;
         using size_type = ring_buffer<T, Capacity>::size_type;
     
 	public:
         iterator(ring_buffer& ring):ring_(ring), i_(ring.count()){}
 		iterator(ring_buffer& ring, size_type offset):ring_(ring),offset_(offset){}		
         iterator& operator++(){ i_++; return *this; }
-        iterator& operator++(int){ i_++; return *this; }
+        iterator operator++(int){ iterator tmp(*this); ++(*this); return tmp; }
+        iterator& operator--(){ i_ = (i_ + ring_.max_size() - 1) % ring_.max_size(); return *this; }
+        iterator operator--(int){ iterator tmp(*this); --(*this); return tmp; }
 		bool operator==(const iterator& rhs) const { return &ring_ == &rhs.ring_ && i_ == rhs.i_; }
         bool operator!=(const iterator& rhs) const { return !(*this == rhs); }
-		T& operator*() { return ring_[(i_ + offset_) % ring_.max_size()]; }
-		const T& operator*() const { return ring_[(i_ + offset_) % ring_.max_size()]; }
+		reference operator*() { return ring_[(i_ + offset_) % ring_.max_size()]; }
+		const_reference operator*() const { return ring_[(i_ + offset_) % ring_.max_size()]; }
 		
     protected:
         ring_buffer& ring_;
@@ -54,25 +60,31 @@ public:
         friend class const_iterator;   
 	};
 
-    class const_iterator : public std::iterator<std::input_iterator_tag, T> {
+    class const_iterator : public std::iterator<std::bidirectional_iterator_tag, T> {
     public:
+        using reference = ring_buffer<T, Capacity>::const_reference;
         using size_type = ring_buffer<T, Capacity>::size_type;
     
 	public:
         const_iterator(const ring_buffer& ring):ring_(ring), i_(ring.count()){}
 		const_iterator(const ring_buffer& ring, size_type offset):ring_(ring),offset_(offset){}		
-        const_iterator(const iterator& it):ring_(it.ring_), i_(it.i_), offset_(it.offset_){}
+        const_iterator(const iterator& it):ring_(it.ring_), i_(it.i_), offset_(it.offset_){}        
         const_iterator& operator++(){ i_++; return *this; }
-        const_iterator& operator++(int){ i_++; return *this; }
+        const_iterator operator++(int){ const_iterator tmp(*this); ++(*this); return tmp; }
+        const_iterator& operator--(){ i_ = (i_ + ring_.max_size() - 1) % ring_.max_size(); return *this; }
+        const_iterator operator--(int){ const_iterator tmp(*this); --(*this); return tmp; }
 		bool operator==(const const_iterator& rhs) const { return &ring_ == &rhs.ring_ && i_ == rhs.i_; }
         bool operator!=(const const_iterator& rhs) const { return !(*this == rhs); }
-        const T& operator*() const { return ring_[(i_ + offset_) % ring_.max_size()]; }
+        reference operator*() const { return ring_[(i_ + offset_) % ring_.max_size()]; }
 		
     protected:
         const ring_buffer& ring_;
         size_type offset_ = 0;
 		size_type i_ = 0;
 	};
+
+    using reverse_iterator = std::reverse_iterator<iterator>;
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
 public:
 
@@ -158,6 +170,14 @@ public:
     const_iterator cbegin() const { return const_iterator(*this, 0); }
 
     const_iterator cend() const { return const_iterator(*this); }
+
+    reverse_iterator rbegin() { return std::reverse_iterator<iterator>(end()); }
+
+    reverse_iterator rend() { return std::reverse_iterator<iterator>(iterator(*this, 0)); }
+
+    const_reverse_iterator rbegin() const { return std::reverse_iterator<const_iterator>(end()); }
+
+    const_reverse_iterator rend() const { return std::reverse_iterator<const_iterator>(const_iterator(*this, 0)); }
 
 protected:
 	std::array<T, Capacity> data_;
