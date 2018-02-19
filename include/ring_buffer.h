@@ -131,6 +131,16 @@ public:
 			count_++;
     }
 
+    template<class... Args> 
+    void emplace_back(Args&&... args) {
+        size_type next_index = (start_ + count_) % max_size();
+		data_[next_index] = T(std::forward<Args>(args)...);
+		if (count_ >= max_size())
+			start_ = (start_ + 1) % max_size();
+		else
+			count_++;
+    }
+
     void pop_front(){
         assert(count_ > 0);
         start_ = (start_ + 1) % max_size();

@@ -34,7 +34,7 @@ TEST_CASE("ring_buffer basic operations", "[ring_buffer]"){
         CHECK(ring.empty());
     }
 
-    SECTION("can add"){
+    SECTION("can push_back"){
         ring_buffer<int, 8> ring;
         ring.push_back(42);
         CHECK(ring.count() == 1);
@@ -45,6 +45,12 @@ TEST_CASE("ring_buffer basic operations", "[ring_buffer]"){
         CHECK(ring.front() == 42);
         CHECK(ring.back() == -1);
         CHECK(ring.count() == 2);
+    }
+
+    SECTION("can emplace_back"){
+        ring_buffer<std::unique_ptr<int>, 8> ring;
+        ring.emplace_back(new int(42));
+        CHECK(*ring.front() == 42);
     }
 
     SECTION("add up to max_size()"){
