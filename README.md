@@ -1,4 +1,4 @@
-# bsp_utils
+# utils
 
 A collection of data structures for c++11. Each header is more-or-less standalone and can be configured with `#define`. Tests are provided in `tests/`.
 
