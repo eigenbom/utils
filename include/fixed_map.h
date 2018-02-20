@@ -25,27 +25,30 @@ struct is_iterator<
 	: std::true_type {};
 } // namespace detail
 
-// A simple fixed-size inlined hash map
-// Note! Order is non-deterministic across platforms
-template<typename Key, typename T, int Capacity, class Hash = std::hash<Key>> class fixed_map {
+// A simple map of elements stored in a fixed-size array.
+// Is essentially a hashmap with open addressing and linear probing.
+template<typename Key, typename T, int Capacity, class Hash = std::hash<Key>> 
+class fixed_map {
 	static_assert(Capacity > 0, "Capacity <= 0!");
 
 public:
-	using key_type = Key;
-	using mapped_type = T;
-	struct value_type {
-		key_type key;
-		mapped_type value;
+	struct slot {
+		Key key;
+		T value;
 		bool valid = false;
 	};
+
+	using key_type = Key;
+	using mapped_type = T;
+	using value_type = slot;
 	using reference = T&;
 	using const_reference = const T&;
 	using iterator = value_type*;
 	using const_iterator = const value_type*;
-	using size_type = std::size_t;
+	using size_type = int;
 
 public:
-	fixed_map(const T& invalidValue = T()) : size_(0), invalid_value_(invalidValue) { clear(); }
+	fixed_map(const T& invalid_value = T()) : size_(0), invalid_value_(invalid_value) { clear(); }
 
 	template<class Container> fixed_map(const Container& els) : fixed_map(els.begin(), els.end()) {}
 
@@ -64,37 +67,19 @@ public:
 	static constexpr inline size_type max_size() { return Capacity; }
 
 	bool has(const key_type& key) const {
-		size_type index = hash(key);
-		size_type oindex = index;
-		while (true) {
-			if (data_[index].valid && data_[index].key == key) {
-				return true;
-			}
-			index = (index + 1) % max_size();
-			if (index == oindex) {
-				break;
-			}
-		}
-		return false;
+		return find_index(key) != -1;
 	}
 
 	inline const_reference find(const key_type& key) const {
-		size_type index = hash(key);
-		size_type oindex = index;
-		while (true) {
-			if (data_[index].valid && data_[index].key == key) {
-				return data_[index].value;
-			}
-			index = (index + 1) % max_size();
-			if (index == oindex) {
-				break;
-			}
-		}
-		return invalid_value_;
+		auto index = find_index(key);
+		if (index != -1) return data_[index].value;
+		else return invalid_value_;
 	}
 
 	inline reference find(const key_type& key) {
-		return const_cast<reference>(static_cast<const fixed_map*>(this)->find(key));
+		auto index = find_index(key);
+		if (index != -1) return data_[index].value;
+		else return invalid_value_;
 	}
 
 	reference operator[](const key_type& key) { return find(key); }
@@ -106,7 +91,7 @@ public:
 			error("fixed_map: trying to insert too many elements");
 			return begin();
 		}
-		size_type index = hash(key);
+		size_type index = hash_to_index(key);
 		size_type oindex = index;
 		while (data_[index].valid) {
 			index = (index + 1) % max_size();
@@ -137,14 +122,30 @@ protected:
 	template<typename Iter,
 			 typename = typename std::enable_if<detail::is_iterator<Iter>::value>::type>
 	fixed_map(Iter begin_, Iter end_) {
-		auto size = std::distance(begin_, end_);
+		auto size = static_cast<size_type>(std::distance(begin_, end_));
 		if (size > max_size()) throw std::runtime_error("fixed_map: too many elements");
-		for (; begin_ != end_; ++begin_) {
-			insert(begin_->first, begin_->second);
+		for (auto it = begin_; it != end_; ++it) {
+			insert(it->first, it->second);
 		}
 	}
 
-	static size_type hash(const key_type& key) { return ((size_type) Hash{}(key)) % max_size(); }
+	static inline std::size_t hash(const key_type& key) { return Hash{}(key); }
+
+	static inline size_type hash_to_index(const key_type& key) { return static_cast<size_type>(hash(key) % max_size()); }
+
+	inline size_type find_index(const key_type& key) const {
+		auto start_index = hash_to_index(key);
+		auto index = start_index;
+		do {
+			const auto& slot = data_[index];
+			if (slot.valid && slot.key == key) {
+				return index;
+			}
+			index = (index + 1) % max_size();
+		}
+		while (index != start_index);
+		return -1;
+	}
 
 	void error(const char* message) const {
 #ifdef BSP_FIXED_MAP_LOG_ERROR

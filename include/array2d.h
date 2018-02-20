@@ -1,5 +1,5 @@
 // Customise the behaviour of array2d by defining these before including it:
-// #define BSP_ARRAY2D_LOG_ALLOCATION(message) to log errors
+// #define BSP_ARRAY2D_ALLOCATION(array, bytes) to receive allocations
 
 #ifndef BSP_ARRAY2D_H
 #define BSP_ARRAY2D_H
@@ -9,11 +9,6 @@
 #include <iostream>
 #include <vector>
 
-#ifdef BSP_ARRAY2D_LOG_ALLOCATION
-#include <typeindex>
-#include <sstream>
-#endif
-
 namespace bsp {
 
 template<typename T> class array2d {
@@ -21,7 +16,7 @@ public:
     using value_type = T;
     using reference = T&;
     using const_reference = const T&;
-    using size_type = int; // Integer
+    using size_type = int;
 
 public:
     array2d() = default;
@@ -62,15 +57,9 @@ public:
     void resize(size_type width, size_type height, const T& value = T()){
         assert(width >= 0 && height >= 0);
         
-    #ifdef BSP_ARRAY2D_LOG_ALLOCATION
-        int megabytes = (sizeof(T) * width * height) / (1024 * 1024);
-        if (megabytes >= 1){
-            std::ostringstream oss;
-            oss << "Resizing array2d<" << typeid(value).name() << ">"
-                << "(" << width << "x" << height << ") " 
-                << megabytes << "M";
-            BSP_ARRAY2D_LOG_ALLOCATION(oss.str());
-        }
+    #ifdef BSP_ARRAY2D_ALLOCATION
+        int bytes = (sizeof(T) * width * height);
+        BSP_ARRAY2D_ALLOCATION(*this, bytes);
     #endif
 
         width_ = width;

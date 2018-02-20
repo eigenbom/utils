@@ -29,7 +29,7 @@ namespace detail {
 		using const_iterator = const value_type*;
 		using reverse_iterator = std::reverse_iterator<iterator>;
 		using const_reverse_iterator = std::reverse_iterator<const_iterator>;
-		using size_type = std::size_t;
+		using size_type = int;
 
 	public:
 		static_vector() = default;
@@ -180,7 +180,7 @@ public:
 	using const_iterator 		 = const value_type*;
 	using reverse_iterator 		 = std::reverse_iterator<iterator>;
 	using const_reverse_iterator = std::reverse_iterator<const_iterator>;
-	using size_type = std::size_t;
+	using size_type = int;
 
 public:
 	inlined_vector() = default;
@@ -195,11 +195,11 @@ public:
 		}		
 	}
 
-	template<std::size_t Capacity_, bool CanExpand_>
+	template<int Capacity_, bool CanExpand_>
 	inlined_vector(const inlined_vector<T, Capacity_, CanExpand_>& other)
 		: inlined_vector(other.begin(), other.size()) {}
 
-	template<std::size_t Capacity_, bool CanExpand_>
+	template<int Capacity_, bool CanExpand_>
 	inlined_vector(inlined_vector<T, Capacity_, CanExpand_>&& other)
 		: inlined_vector(other.begin(), other.size()) {}
 
@@ -372,7 +372,7 @@ protected:
 protected:
 	// Helper constructor
 	template<typename Iter, typename = typename std::enable_if<detail::is_iterator<Iter>::value>::type> 
-	inlined_vector(Iter begin_, std::size_t size) {		
+	inlined_vector(Iter begin_, int size) {		
 		if (size > max_size()) {
 			error("inlined_vector() too many elements");
 			size_ = max_size();
@@ -388,7 +388,7 @@ protected:
 	}
 
 	// Helper constructor for sub-class
-	inlined_vector(array_type&& array, std::size_t size)
+	inlined_vector(array_type&& array, int size)
 		: data_internal_(std::move(array)), size_(size) {}
 
 	inline reference element(size_type index) { return *std::next(begin(), index); }
@@ -423,8 +423,8 @@ protected:
 #endif
 	}
 
-	template<typename T2, int N>
-	friend std::ostream& operator<<(std::ostream& out, const inlined_vector<T2, N, false>& vector);
+	template<typename T_, int Capacity_>
+	friend std::ostream& operator<<(std::ostream& out, const inlined_vector<T_, Capacity_, false>& vector);
 };
 
 template<typename T, int Capacity>
@@ -466,7 +466,7 @@ public:
 		}
 	}
 
-	template<std::size_t Capacity_, bool CanExpand_>
+	template<int Capacity_, bool CanExpand_>
 	inlined_vector(const inlined_vector<T, Capacity_, CanExpand_>& other)
 		: inlined_vector(other.begin(), other.end(), other.size()) {}
 
@@ -665,12 +665,12 @@ protected:
 		inlined_ = false;
 	}
 
-	template<typename T2, int N>
-	friend std::ostream& operator<<(std::ostream& out, const inlined_vector<T2, N, true>& vector);
+	template<typename T_, int Capacity_>
+	friend std::ostream& operator<<(std::ostream& out, const inlined_vector<T_, Capacity_, true>& vector);
 };
 
-template<typename T, int N>
-inline std::ostream& operator<<(std::ostream& out, const inlined_vector<T, N, false>& vector) {
+template<typename T, int Capacity>
+inline std::ostream& operator<<(std::ostream& out, const inlined_vector<T, Capacity, false>& vector) {
 	out << "inlined_vector ";
 	out << "(inlined):  [";
 	if (vector.empty())
@@ -686,8 +686,8 @@ inline std::ostream& operator<<(std::ostream& out, const inlined_vector<T, N, fa
 	return out;
 }
 
-template<typename T, int N>
-inline std::ostream& operator<<(std::ostream& out, const inlined_vector<T, N, true>& vector) {
+template<typename T, int Capacity>
+inline std::ostream& operator<<(std::ostream& out, const inlined_vector<T, Capacity, true>& vector) {
 	out << "inlined_vector ";
 	if (vector.inlined_)
 		out << "(inlined):  [";

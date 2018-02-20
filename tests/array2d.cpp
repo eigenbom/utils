@@ -1,4 +1,15 @@
+#include <iostream>
+#include <typeindex>
+
+#define BSP_ARRAY2D_ALLOCATION(array, bytes) {\
+    /* if (bytes > 1024 * 1024){ */ \
+    std::cout << "resizing array2d<" << typeid((array)(0,0)).name() << ">" \
+    << "(" << (array).width() << "x" << (array).height() << ") " \
+    << bytes << "B\n";} \
+    /* } */
+
 #include "../include/array2d.h"
+
 #include "catch.hpp"
 #include "container_matcher.h"
 

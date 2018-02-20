@@ -12,5 +12,7 @@ TEST?=
 SRC = tests.cpp fixed_map.cpp fixed_string.cpp inlined_vector.cpp ring_buffer.cpp array2d.cpp
 
 tests: $(SRC) Makefile ../include/*
-	@$(CXX) -o ../bin/$@ $(SRC) $(INC) $(CXXFLAGS) $(LLVMLDFLAGS) && \
+	@$(CXX) -o ../bin/$@ $(SRC) $(INC) $(CXXFLAGS) $(LLVMLDFLAGS)
+
+run: tests
 	../bin/tests $(TEST)

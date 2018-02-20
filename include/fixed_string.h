@@ -29,7 +29,7 @@ template<int Capacity> class fixed_string {
 public:
     using iterator = char*;
     using const_iterator = const char*;
-    using size_type = std::size_t;
+    using size_type = int;
 
 public:
 	fixed_string():size_(0){ zero_contents(); data_[0] = '\0'; }
@@ -69,7 +69,7 @@ public:
 
     template <typename Iter>
     fixed_string& assign(Iter begin_, Iter end_){
-        auto size = static_cast<std::size_t>(std::distance(begin_, end_));
+        auto size = static_cast<size_type>(std::distance(begin_, end_));
         if (size > max_size() && !truncates_) error("fixed_string is too long!");
 		zero_contents();
 		size_ = std::min(size, max_size());
@@ -87,7 +87,7 @@ protected:
     // Helper constructor
     template <typename Iter>
     fixed_string(Iter begin, Iter end, bool truncates = false):truncates_(truncates) {
-        auto size = static_cast<size_t>(std::distance(begin, end));
+        auto size = static_cast<size_type>(std::distance(begin, end));
 		if (size > max_size() && !truncates_) error("fixed_string is too long!");
         zero_contents();
 		size_ = std::min(size, max_size());
@@ -113,22 +113,22 @@ protected:
     template <int M> friend std::ostream& operator<<(std::ostream& out, const fixed_string<M>& str);
 };
 
-template<std::size_t M, std::size_t N> 
+template<int M, int N> 
 bool operator==(const fixed_string<M>& lhs, const fixed_string<N>& rhs) {
     return lhs.size() == rhs.size() && detail::equal(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
 }
 
-template<std::size_t M> 
+template<int M> 
 bool operator==(const fixed_string<M>& lhs, const std::string& rhs) {
     return lhs.size() == rhs.size() && detail::equal(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
 }
 
-template<std::size_t M> 
+template<int M> 
 bool operator==(const fixed_string<M>& lhs, const char* rhs) {
     return lhs.size() == strlen(rhs) && detail::equal(lhs.begin(), lhs.end(), rhs, rhs + lhs.size());
 }
 
-template<std::size_t M, std::size_t N> 
+template<int M, int N> 
 bool operator<(const fixed_string<M>& lhs, const fixed_string<N>& rhs) {
     return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
 }

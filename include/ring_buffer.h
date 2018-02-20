@@ -31,8 +31,7 @@ public:
     using value_type = T;
     using reference = T&;
 	using const_reference = const T&;
-	using size_type = std::size_t;
-    using difference_type = std::ptrdiff_t;
+	using size_type = int;
 
     class iterator : public std::iterator<std::bidirectional_iterator_tag, T> {
     public:
