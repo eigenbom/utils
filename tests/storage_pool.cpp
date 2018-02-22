@@ -16,17 +16,22 @@
 const bool DebugLogAllocations = true;
 #define BSP_STORAGE_POOL_ALLOCATION(message, bytes) do { \
         if (DebugLogAllocations) \
-			std::cout << "Memory: Allocated " << (bytes / 1024u) << "kB \"" << message << "\"\n"; \
+			std::cout << "Memory: Allocated " << (bytes / 1024) << "kB \"" << message << "\"\n"; \
 		} while(false)
 
 #include <typeinfo>
 
 namespace {
-    template <typename T> std::string type_name(typename std::enable_if<std::is_same<T, int>::value, void>::type* v = 0){
+    template <typename T, typename U>
+    using type_check = typename std::enable_if<std::is_same<typename std::decay<T>::type, U>::value, void>::type*;
+
+    template <typename T> 
+    std::string type_name(type_check<T, int> = 0){
         return typeid(T).name();
     }
 
-    template <typename T, typename U = typename T::value_type> std::string type_name(typename std::enable_if<std::is_same<typename std::decay<T>::type, std::vector<U>>::value, void>::type* v = 0){
+    template <typename T, typename U = typename T::value_type> 
+    std::string type_name(type_check<T, std::vector<U>> = 0){
         std::ostringstream oss;
         oss << "vector<" << type_name<U>() << ">";
         return oss.str();
@@ -101,9 +106,9 @@ TEST_CASE("storage_pool", "[storage_pool]") {
 
 #ifdef BSP_STORAGE_POOL_LOG_ERROR
      SECTION("allocation error"){
-        std::cout << "Should print an error...\n";
+        std::cout << "Should print errors...\n";
         storage_pool<int_vector> vec;
-        for (int i=0; i<8; i++) vec.append_storage(1 << 26);
+        for (int i=0; i<2; i++) vec.append_storage(1 << 26);
      }
 #endif
 }

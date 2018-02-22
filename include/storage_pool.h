@@ -6,6 +6,7 @@
 #ifndef BSP_STORAGE_POOL_H
 #define BSP_STORAGE_POOL_H
 
+#include <limits>
 #include <type_traits>
 #include <vector>
 
@@ -62,19 +63,26 @@ public:
 	storage_pool& operator=(storage_pool&&) = delete;
 
 	bool append_storage(size_type size) {
-		auto bytes = size_of_value() * size;
-		unsigned int total_bytes = static_cast<unsigned int>(size_of_value()) * static_cast<unsigned int>(size_ + size);
-		assert(bytes > 0);
+		assert(size > 0);
 
+		auto new_bytes = size_of_value() * size;
+		auto current_bytes = size_of_value() * size_;
+
+		if(current_bytes > std::numeric_limits<size_type>::max() - new_bytes){
+			allocation_error(std::numeric_limits<size_type>::max());
+			return false;
+		}
+
+		auto total_bytes = current_bytes + new_bytes;
 		log_allocation(size_ + size, total_bytes);
-		T* data = reinterpret_cast<T*>(new (std::nothrow) typename storage_type::aligned_storage_type[bytes]);
+		T* data = reinterpret_cast<T*>(new (std::nothrow) typename storage_type::aligned_storage_type[new_bytes]);
 		if (data == nullptr) {
 			allocation_error(total_bytes);
 			return false;
 		}
 		else {
             auto offset = size_;
-			storages_.emplace_back(bytes, size, offset, data);
+			storages_.emplace_back(new_bytes, size, offset, data);
 			size_ += size;
 			return true;
 		}
@@ -84,7 +92,7 @@ public:
 
 	inline size_type bytes() const { return size_ * size_of_value(); }
 
-	size_t storage_count() const { return storages_.size(); }
+	inline size_type storage_count() const { return storages_.size(); }
 
 	const storage_type& storage(size_type i) const { return storages_[i]; }
 
@@ -105,9 +113,9 @@ protected:
 	std::vector<storage_type> storages_;
 
 protected:
-	inline const size_type size_of_value() { return sizeof(T); };
+	inline const size_type size_of_value() { return static_cast<size_type>(sizeof(T)); };
 
-	void log_allocation(size_type count, unsigned int bytes){
+	void log_allocation(size_type count, size_type bytes){
 #ifdef BSP_STORAGE_POOL_ALLOCATION
         std::ostringstream oss;
 		oss << "storage_pool<" << BSP_TYPE_NAME(T) << "> allocating " << count << " elements";
@@ -115,7 +123,7 @@ protected:
 #endif
 	}
 
-	void allocation_error(unsigned int bytes){
+	void allocation_error(size_type bytes){
 #ifdef BSP_STORAGE_POOL_LOG_ERROR
         std::ostringstream oss;
 		oss << "storage_pool<" << BSP_TYPE_NAME(T) << "> couldn't allocate new memory. "
