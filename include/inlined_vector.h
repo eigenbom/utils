@@ -1,6 +1,6 @@
 // Customise the behaviour of inlined_vector by defining these before including it:
-// - #define BSP_INLINED_VECTOR_THROWS to get runtime_error
-// - #define BSP_INLINED_VECTOR_LOG_ERROR(message) to log errors
+// #define BSP_INLINED_VECTOR_THROWS to get runtime_error
+// #define BSP_INLINED_VECTOR_LOG_ERROR(message) to log errors
 
 #ifndef BSP_INLINED_VECTOR_H
 #define BSP_INLINED_VECTOR_H

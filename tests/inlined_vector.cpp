@@ -12,7 +12,7 @@
 
 #define BSP_INLINED_VECTOR_THROWS
 // #define BSP_INLINED_VECTOR_LOG_ERROR(message) std::cerr << message << "\n"
-#include "inlined_vector.h"
+#include "../include/inlined_vector.h"
 
 #include "catch.hpp"
 #include "container_matcher.h"
