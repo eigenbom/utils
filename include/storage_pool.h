@@ -35,13 +35,21 @@ public:
 
         storage_type() = default;
         storage_type(size_type bytes, size_type count, size_type offset, T* data):bytes(bytes), count(count), offset(offset), data(data){}
-        ~storage_type(){ delete[] reinterpret_cast<aligned_storage_type*>(data); }
+        ~storage_type(){ if (data != nullptr) delete[]reinterpret_cast<aligned_storage_type*>(data); }
+		storage_type(const storage_type&) = delete;
+		storage_type& operator=(const storage_type&) = delete;
+		storage_type(storage_type&& rhs):bytes(rhs.bytes), count(rhs.count), offset(rhs.offset), data(rhs.data){
+			rhs.bytes = 0;
+			rhs.count = 0;
+			rhs.offset = 0;
+			rhs.data = nullptr;
+		}
 	};
 
 public:
     storage_pool() = default;
 
-	storage_pool(size_type count):size_(0){
+	explicit storage_pool(size_type count):size_(0){
         assert(count > 0);
         const int initial_capacity = 100;
 		storages_.reserve(initial_capacity);
@@ -54,8 +62,9 @@ public:
 	storage_pool& operator=(storage_pool&&) = delete;
 
 	bool append_storage(size_type size) {
-		auto total_bytes = size_of_value() * (size_ + size);
 		auto bytes = size_of_value() * size;
+		unsigned int total_bytes = static_cast<unsigned int>(size_of_value()) * static_cast<unsigned int>(size_ + size);
+		assert(bytes > 0);
 
 		log_allocation(size_ + size, total_bytes);
 		T* data = reinterpret_cast<T*>(new (std::nothrow) typename storage_type::aligned_storage_type[bytes]);
@@ -98,7 +107,7 @@ protected:
 protected:
 	inline const size_type size_of_value() { return sizeof(T); };
 
-	void log_allocation(int count, int bytes){
+	void log_allocation(size_type count, unsigned int bytes){
 #ifdef BSP_STORAGE_POOL_ALLOCATION
         std::ostringstream oss;
 		oss << "storage_pool<" << BSP_TYPE_NAME(T) << "> allocating " << count << " elements";
@@ -106,7 +115,7 @@ protected:
 #endif
 	}
 
-	void allocation_error(int bytes){
+	void allocation_error(unsigned int bytes){
 #ifdef BSP_STORAGE_POOL_LOG_ERROR
         std::ostringstream oss;
 		oss << "storage_pool<" << BSP_TYPE_NAME(T) << "> couldn't allocate new memory. "

@@ -16,7 +16,7 @@
 const bool DebugLogAllocations = true;
 #define BSP_STORAGE_POOL_ALLOCATION(message, bytes) do { \
         if (DebugLogAllocations) \
-			std::cout << "Memory: Allocated " << (bytes / 1024) << "kB \"" << message << "\"\n"; \
+			std::cout << "Memory: Allocated " << (bytes / 1024u) << "kB \"" << message << "\"\n"; \
 		} while(false)
 
 #include <typeinfo>
@@ -101,8 +101,9 @@ TEST_CASE("storage_pool", "[storage_pool]") {
 
 #ifdef BSP_STORAGE_POOL_LOG_ERROR
      SECTION("allocation error"){
-         std::cout << "Should print an error...\n";
-         storage_pool<int_vector> arr { 1 << 31 };
+        std::cout << "Should print an error...\n";
+        storage_pool<int_vector> vec;
+        for (int i=0; i<8; i++) vec.append_storage(1 << 26);
      }
 #endif
 }
