@@ -1,5 +1,7 @@
 // #define BSP_STORAGE_POOL_LOG_ERROR(message) to log errors
-// TODO: #define BSP_STORAGE_POOL_ALLOCATION(message, bytes) to report allocations
+// #define BSP_STORAGE_POOL_ALLOCATION(message, bytes) to report allocations
+// For either of these you also need
+// #define BSP_TYPE_NAME(type) to return a string representing the typename
 
 #ifndef BSP_STORAGE_POOL_H
 #define BSP_STORAGE_POOL_H
@@ -10,8 +12,6 @@
 #if defined(BSP_STORAGE_POOL_LOG_ERROR) || defined(BSP_STORAGE_POOL_ALLOCATION)
 #include <sstream>
 #endif
-
-extern bool DebugLogAllocations;
 
 namespace bsp {
 
@@ -101,22 +101,15 @@ protected:
 	void log_allocation(int count, int bytes){
 #ifdef BSP_STORAGE_POOL_ALLOCATION
         std::ostringstream oss;
-		oss << "storage_pool<" << T::ClassName() << "> allocating " << count << " elements";
+		oss << "storage_pool<" << BSP_TYPE_NAME(T) << "> allocating " << count << " elements";
         BSP_STORAGE_POOL_ALLOCATION(oss.str(), bytes);        
 #endif
-        /*
-        if (DebugLogAllocations) {
-			LOG_INFO() << "Memory: storage_pool<" << T::ClassName() << "> is allocating new memory. "
-				<< "New total " << (bytes / 1024) << "kB"
-				<< "(for  " << count << " elements)";
-		}
-        */
 	}
 
 	void allocation_error(int bytes){
 #ifdef BSP_STORAGE_POOL_LOG_ERROR
         std::ostringstream oss;
-		oss << "Memory: storage_pool<" << T::ClassName() << "> couldn't allocate new memory. "
+		oss << "storage_pool<" << BSP_TYPE_NAME(T) << "> couldn't allocate new memory. "
 			<< "Attempted total " << (bytes / 1024) << "kB";
         BSP_STORAGE_POOL_LOG_ERROR(oss.str());
 #endif
