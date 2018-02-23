@@ -5,6 +5,7 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <new>
 #include <random>
 #include <sstream>
 #include <string>
@@ -106,9 +107,15 @@ TEST_CASE("storage_pool", "[storage_pool]") {
 
 #ifdef BSP_STORAGE_POOL_LOG_ERROR
      SECTION("allocation error"){
-        std::cout << "Should print errors...\n";
-        storage_pool<int_vector> vec;
-        for (int i=0; i<2; i++) vec.append_storage(1 << 26);
+        std::cout << "Should cause a bad_array_new_length exception or print an allocation error...\n";
+
+        try {
+            storage_pool<int_vector> vec;
+            for (int i=0; i<8; i++) vec.append_storage(1 << (18 + i));
+        }
+        catch (const std::bad_array_new_length& e){
+            std::cout << "Exception caught: " << e.what() << "\n";
+        }
      }
 #endif
 }
