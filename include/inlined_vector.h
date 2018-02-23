@@ -208,6 +208,8 @@ public:
 
 	inlined_vector(std::initializer_list<T> els) : inlined_vector(els.begin(), els.size()) {}
 
+    virtual ~inlined_vector() = default;
+
 	constexpr static inline size_type max_size() { return Capacity; }
 
 	inline virtual bool can_expand() const { return false; }
