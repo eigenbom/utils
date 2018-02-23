@@ -209,6 +209,15 @@ TEST_CASE("inlined_vector basic operations 1 (expandable)", "[inlined_vector]") 
     CHECK(v1.back() == 42);
 }
 
+struct simple_pair { int a, b; };
+TEST_CASE("inlined_vector aggregate push_back", "[inlined_vector]") {
+    inlined_vector<simple_pair, 16, true> v;
+    v.push_back({4, 4});
+    CHECK(v.size() == 1);
+    CHECK(v.front().a == 4);
+    CHECK(v.front().b == 4);
+}
+
 TEST_CASE("inlined_vector basic operations 2 (expandable)", "[inlined_vector]") {
 	inlined_vector<int, 16, true> v { 1, 2, 3, 4, 5 };
 	REQUIRE(v.max_size() == 16);

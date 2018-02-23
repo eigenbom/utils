@@ -224,6 +224,17 @@ public:
 
 	inline virtual bool expanded() const { return false; }
 
+    inline void push_back(const T& value) {
+        // NB: Need this to support aggregates
+        if (size_ >= max_size()) {
+			error("inlined_vector::push_back exceeded Capacity");
+		}
+		else {
+			data_internal_.push_back(value);
+			size_++;
+		}
+    }
+
 	template <typename U>
 	inline void push_back(U&& value) {
 		if (size_ >= max_size()) {
@@ -530,6 +541,21 @@ public:
 	}
 
 	inline bool expanded() const final override { return !inlined_; }
+
+    inline void push_back(const T& value) {
+        // NB: Need this overload to support aggregates in the parameter
+        if (inlined_ && size_ >= max_size()) {
+			grow_to_external_storage();
+		}
+
+		if (inlined_) {
+			base_t::push_back(value);
+		}
+		else {
+			data_external_.push_back(value);
+			size_++;
+		}
+    }
 
 	template <typename U>
 	inline void push_back(U&& value) {

@@ -1,5 +1,5 @@
 
-BIN_DIR = bin/
+BIN_DIR = bin
 SOURCE_DIR = tests
 OBJECT_DIR_DEBUG = build
 INCLUDE_DIR = include
