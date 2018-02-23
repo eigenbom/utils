@@ -592,7 +592,7 @@ public:
 
 	inline void pop_back() override final {
 		if (!empty()){
-			if (inlined_) data_external_.pop_back();
+			if (!inlined_) data_external_.pop_back();
 			size_--;
 		}
 	}
