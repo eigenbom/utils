@@ -52,7 +52,7 @@ namespace detail {
 			size_ = other.size_;
 			for(size_type i = 0; i < size_; ++i) {
 				new (data_+i) T(std::move(other[i]));
-			}
+			}            
 		}
 
 		static_vector& operator=(const static_vector& other){
@@ -207,11 +207,15 @@ public:
 
 	template<int Capacity_, bool CanExpand_>
 	inlined_vector(const inlined_vector<T, Capacity_, CanExpand_>& other)
-		: inlined_vector(other.begin(), other.size()) {}
+		: inlined_vector(other.begin(), other.size()) {
+        assert(size_ == data_internal_.size());
+    }
 
 	template<int Capacity_, bool CanExpand_>
 	inlined_vector(inlined_vector<T, Capacity_, CanExpand_>&& other)
-		: inlined_vector(other.begin(), other.size()) {}
+		: inlined_vector(other.begin(), other.size()) {
+        assert(size_ == data_internal_.size());        
+    }
 
 	template<class Container>
 	inlined_vector(const Container& els) : inlined_vector(els.begin(), els.size()) {}
@@ -359,6 +363,7 @@ public:
 		for (size_type j = i; j < size_ - 1; j++) {
 			element(j) = std::move(element(j + 1));
 		}
+        data_internal_.pop_back();
 		size_--;
 		return begin() + i;
 	}
@@ -423,7 +428,9 @@ protected:
 
 	// Helper constructor for sub-class
 	inlined_vector(array_type&& array, int size)
-		: data_internal_(std::move(array)), size_(size) {}
+		: data_internal_(std::move(array)), size_(size) {
+        assert(size_ == data_internal_.size());
+    }
 
 	inline reference element(size_type index) { return *std::next(begin(), index); }
 
@@ -652,6 +659,7 @@ public:
 			for (size_type j = i; j < size_ - 1; j++) {
 				element(j) = std::move(element(j + 1));
 			}
+            data_internal_.pop_back();
 			size_--;
 			return begin() + i;
 		}
