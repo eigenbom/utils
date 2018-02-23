@@ -6,6 +6,7 @@
 #ifndef BSP_STORAGE_POOL_H
 #define BSP_STORAGE_POOL_H
 
+#include <cassert>
 #include <limits>
 #include <type_traits>
 #include <vector>

@@ -81,6 +81,10 @@ namespace detail {
 
 		constexpr static inline size_type max_size() { return Capacity; }
 
+        void clear(){
+			destroy_all();
+		}
+
 		template <class U>
 		void push_back(U&& value) {
 			if( size_ >= max_size() ) throw std::bad_alloc{};
@@ -214,7 +218,7 @@ public:
 
 	inline virtual bool can_expand() const { return false; }
 
-	inline void clear() { size_ = 0; }
+	inline void clear() { size_ = 0; data_internal_.clear(); }
 
 	inline size_type size() const { return size_; }
 

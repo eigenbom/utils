@@ -31,6 +31,9 @@ OBJECTS_DEBUG = $(addprefix $(OBJECT_DIR_DEBUG)/, $(OBJECTS))
 
 $(OBJECT_DIR_DEBUG)/%.o: $(SOURCE_DIR)/%.cpp $(INCLUDE_DIR)/%.h
 	@$(CXX) -o $@ -c $< -I $(INCLUDE_DIR) $(CXXFLAGS)
+	
+$(OBJECT_DIR_DEBUG)/tests.o: $(SOURCE_DIR)/tests.cpp
+	@$(CXX) -o $@ -c $< -I $(INCLUDE_DIR) $(CXXFLAGS)
 
 tests: $(OBJECTS_DEBUG) Makefile
 	@mkdir -p $(BIN_DIR)
