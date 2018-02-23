@@ -8,10 +8,6 @@
 #include <cstdint>
 #include <iterator>
 
-#ifdef BSP_OBJECT_POOL_LOG_ERROR
-#include <sstream>
-#endif
-
 #include "storage_pool.h"
 
 namespace bsp {
@@ -61,10 +57,7 @@ public:
 
 public:
 	// PRE: size <= max_size()
-	object_pool(size_type size = max_size())
-		: capacity_{size}, 
-		  objects_{size},
-		  objects_grow_size_(size){
+	object_pool(size_type size = max_size()): objects_grow_size_{size}, capacity_{size}, objects_{size} {
 		assert(size <= max_size());
 		clear();
 	}
@@ -110,7 +103,7 @@ public:
 
 	size_type capacity() const { return capacity_; }
 
-	static constexpr size_type max_size() { return MaxSize; }
+	static constexpr size_type max_size() { return max_size_; }
 
 	void remove(ID id) {
 		index_type& in = index(id);

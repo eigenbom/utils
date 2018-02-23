@@ -21,11 +21,12 @@ endif
 
 OBJECTS = tests.o 		\
 	array2d.o 			\
-	storage_pool.o 		\
 	inlined_vector.o 	\
 	fixed_map.o 		\
 	fixed_string.o 		\
-	ring_buffer.o
+	object_pool.o 		\
+	ring_buffer.o		\
+	storage_pool.o
 
 OBJECTS_DEBUG = $(addprefix $(OBJECT_DIR_DEBUG)/, $(OBJECTS))
 
