@@ -97,6 +97,12 @@ namespace detail {
 			new (data_+size_) T(std::forward<Args>(args)...);
 			++size_;
 		}
+
+        void pop_back(){
+            assert(size_ > 0);
+            destroy(data_ + size_);
+            --size_;
+        }
 	
 		T& operator[](size_type i){
 			return *launder(data_ + i);
@@ -218,7 +224,11 @@ public:
 
 	inline virtual bool can_expand() const { return false; }
 
-	inline void clear() { size_ = 0; data_internal_.clear(); }
+	inline void clear() { 
+        size_ = 0;
+        data_internal_.clear();
+        assert(size_ == data_internal_.size());
+    }
 
 	inline size_type size() const { return size_; }
 
@@ -236,6 +246,7 @@ public:
 		else {
 			data_internal_.push_back(value);
 			size_++;
+            assert(size_ == data_internal_.size());
 		}
     }
 
@@ -247,6 +258,7 @@ public:
 		else {
 			data_internal_.push_back(std::forward<U>(value));
 			size_++;
+            assert(size_ == data_internal_.size());
 		}
 	}
 
@@ -257,6 +269,7 @@ public:
 		else {
 			data_internal_.emplace_back(std::forward<Args>(args)...);
 			size_++;
+            assert(size_ == data_internal_.size());
 		}
 	}
 
@@ -273,7 +286,11 @@ public:
 	}
 
 	inline virtual void pop_back() {
-		if (!empty()) size_--;
+		if (!empty()){
+            data_internal_.pop_back();
+            size_--;
+            assert(size_ == data_internal_.size());
+        }
 	}
 
 	inline const_reference back() const {
@@ -537,11 +554,14 @@ public:
 	inline virtual bool can_expand() const override final { return true; }
 
 	inline void clear() {
-		if (!inlined_) {
-			inlined_ = false;
+        if (inlined_) {
+            base_t::clear();
+        }
+		else if (!inlined_) {
+			inlined_ = true;
+            size_ = 0;
 			data_external_.clear();
 		}
-		base_t::clear();
 	}
 
 	inline bool expanded() const final override { return !inlined_; }
@@ -592,8 +612,14 @@ public:
 
 	inline void pop_back() override final {
 		if (!empty()){
-			if (!inlined_) data_external_.pop_back();
-			size_--;
+            if (inlined_){
+                base_t::pop_back();
+            }
+            else {
+                // TODO: become inlined again if small enough?
+                data_external_.pop_back();
+			    size_--;
+            }
 		}
 	}
 
