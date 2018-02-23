@@ -30,7 +30,34 @@ public:
 // Heavily inspired by an article on the Bitsquid blog.
 template<typename T> class object_pool : public object_pool_base {
 public:
+	using value_type = T;
+	using reference = T&;
+	using const_reference = const T&;
 	using size_type = int;
+
+	class iterator: public std::iterator<std::input_iterator_tag, T> {
+	public:
+		using value_type = T;
+		using reference = T&;
+		using const_reference = const T&;
+
+	public:
+		iterator(object_pool& array, unsigned int index);
+		iterator& operator++();
+		// TODO: iterator operator++(int&);
+		bool operator==(const iterator& rhs) const;
+		bool operator!=(const iterator& rhs) const;
+		reference operator*();
+		const_reference operator*() const;
+	private:
+		object_pool& object_pool_;
+		storage_pool<T>& storage_pool_;
+		unsigned int i_ = 0;  // element index
+		unsigned int di_ = 0; // storage index
+		typename storage_pool<T>::storage db_;
+	};
+
+	// TODO: const iterators
 
 public:
 	// PRE: size <= max_size()
@@ -45,41 +72,37 @@ public:
 	object_pool(const object_pool&) = delete;
 	object_pool& operator=(const object_pool&) = delete;
 	
-	// Rename to push_back()
-	ID add() {
+	ID push_back(const T& value = T()) {
 		index_type& in = next_index();
-		T* newT = new (&objects_[in.index]) T();
+		T* newT = new (&objects_[in.index]) T(value);
 		newT->id = in.id;
 		return newT->id;
 	}
 
 	template <typename U>
-	ID add(U&& value) {
+	ID push_back(U&& value) {
 		index_type& in = next_index();
 		T* newT = new (&objects_[in.index]) T(std::forward<U>(value));
 		newT->id = in.id;
 		return newT->id;
 	}
 
-	bool has(ID id) const {
+	int count(ID id) const {
 		const index_type& in = index(id);
-		return in.id == id && in.index != USHRT_MAX;
+		return (in.id == id && in.index != USHRT_MAX) ? 1 : 0;
 	}
 
-	// TODO: Rename to operator[]
-	T& lookup(ID id) {
+	reference operator[](ID id) {
 		return objects_[index(id).index];
 	}
 
-	const T& lookup(ID id) const {
+	const_reference operator[](ID id) const {
 		return objects_[index(id).index];
 	}
 
-	// TODO: Rename this to front()
-	T& first() { return objects_[0]; }
+	reference front() { return objects_[0]; }
 
-	// TODO: Remove this from general data structure
-	T& second() { return objects_[1]; }
+	const_reference front() const { return objects_[0]; }
 
 	const storage_pool<T>& objects() const { return objects_; }
 
@@ -92,7 +115,9 @@ public:
 	void remove(ID id) {
 		index_type& in = index(id);
 		assert(in.id == id);
-		in.id = ID { static_cast<uint32_t>(id) + NewObjectIdAdd }; // increment id to avoid conflicts
+
+		const uint32_t id_increment = 0x10000;
+		in.id = ID { static_cast<uint32_t>(id) + id_increment }; // increment id to avoid conflicts
 
 		T& o = objects_[in.index];
 		assert(o.id == id);
@@ -125,13 +150,19 @@ public:
 		freelist_deque_ = 0;
 		freelist_enque_ = static_cast<uint16_t>(capacity_ - 1);
 	}
+
+	iterator begin() { return iterator(*this, 1); }
+
+	iterator end()   { return iterator(*this, size()); }
 	
-	// Check that array is well-formed
-	void debugCheck() {
+	// Debugging
+	void check_internal_consistency() const {
 		// want to be able to go from deque to enque and cover range
 		int ni = freelist_deque_;
 		if (freelist_deque_ == capacity_) {
-			CHECK(freelist_deque_ == freelist_enque_);
+			if (freelist_deque_ != freelist_enque_){
+				error("object_pool: freelist_deque_ != freelist_enque_");
+			}
 		}
 		else {
 			int count = 1;
@@ -141,41 +172,14 @@ public:
 				ni = indices_[ni].next;
 				count++;
 			}
-			CHECK(count == capacity_ - num_objects_);
+			if (count != capacity_ - num_objects_){
+				error("object_pool: count != capacity_ - num_objects_");
+			}
 		}
 	}
 
-public:
-	class iterator: public std::iterator<std::input_iterator_tag, T> {
-	public:
-		using value_type = T;
-		using reference = T&;
-		using const_reference = const T&;
-
-	public:
-		iterator(object_pool& array, unsigned int index);
-		iterator& operator++();
-		bool operator==(const iterator& rhs) const;
-		bool operator!=(const iterator& rhs) const;
-		reference operator*();
-		const_reference operator*() const;
-	protected:
-		object_pool& object_pool_;
-		storage_pool<T>& storage_pool_;
-		unsigned int i = 0;  // element index
-		unsigned int di = 0; // storage index
-		typename storage_pool<T>::storage db;
-	};
-
-	// TODO: const_iterators
-	iterator begin() { return iterator(*this, 1); }
-	iterator end()   { return iterator(*this, size()); }
-	
 protected:
-	static const size_type MaxSize = 0xffff;
-	static const uint32_t IndexMask = 0xffff;
-	static const uint32_t NewObjectIdAdd = 0x10000;
-
+	static const size_type max_size_ = 0xffff;
 	size_type objects_grow_size_ = 0;
 	size_type capacity_ = 0;
 	size_type num_objects_ = 0;
@@ -188,21 +192,22 @@ protected:
 		uint16_t next  = 0;
 	};
 
-	std::array<index_type, MaxSize> indices_;
+	std::array<index_type, max_size_> indices_;
 	storage_pool<T> objects_;
 
 protected:
-	
+
 	inline uint32_t mask_index(ID id){
-		return static_cast<uint32_t>(id) & IndexMask;
+		const uint32_t index_mask = 0xffff;
+		return static_cast<uint32_t>(id) & index_mask;
 	}
 
 	inline index_type& index(ID id) {
-		return indices_[static_cast<uint32_t>(id) & IndexMask];
+		return indices_[mask_index(id)];
 	}
 
 	inline const index_type& index(ID id) const {
-		return indices_[static_cast<uint32_t>(id) & IndexMask];
+		return indices_[mask_index(id)];
 	}
 
 	index_type& next_index() {
@@ -212,17 +217,16 @@ protected:
 
 		if (num_objects_ >= capacity_) {
 			// Resize
-			int newSize = std::min(capacity_ + objects_grow_size_, max_size());
-			if (newSize <= max_size()) {
-				int numNewObjects = newSize - capacity_;
+			size_type new_size = std::min(capacity_ + objects_grow_size_, max_size());
+			if (new_size <= max_size()) {
+				int num_new_objects = new_size - capacity_;
 				const int numResizeAttempts = 10;
 				for (int i = 0; i < numResizeAttempts; i++) {
-					bool added = objects_.addNewArray(numNewObjects);
+					bool added = objects_.append_storage(num_new_objects);
 					if (added) break;
-					else numNewObjects /= 2; // try again with smaller size
+					else num_new_objects /= 2; // try again with smaller size
 				}
 				capacity_ = objects_.size();
-				// update enqueue
 				indices_[freelist_enque_].next = static_cast<uint16_t>(num_objects_ + 1);
 				freelist_enque_ = static_cast<uint16_t>(capacity_ - 1);
 			}
@@ -246,20 +250,19 @@ protected:
 		BSP_OBJECT_POOL_LOG_ERROR(message);
 #endif
 	}
-
 };
   
-template <typename T> const typename object_pool<T>::size_type object_pool<T>::MaxSize;
+template <typename T> const typename object_pool<T>::size_type object_pool<T>::max_size_;
 
 template<typename C>
 object_pool<C>::iterator::iterator(object_pool<C>& array, unsigned int ri) : object_pool_(array), storage_pool_(array.objects_) {
-	i = 0;
-	di = 0;
-	for (; di < storage_pool_.numArrays(); di++) {
-		auto& dbz = storage_pool_.array(di);
+	i_ = 0;
+	di_ = 0;
+	for (; di_ < storage_pool_.numArrays(); di_++) {
+		auto& dbz = storage_pool_.array(di_);
 		if (ri >= dbz.offset && ri < (dbz.offset + dbz.count)) {
-			i = ri - dbz.offset;
-			db = dbz;
+			i_ = ri - dbz.offset;
+			db_ = dbz;
 			break;
 		}
 	}
@@ -267,25 +270,26 @@ object_pool<C>::iterator::iterator(object_pool<C>& array, unsigned int ri) : obj
 
 template<typename C> 
 typename object_pool<C>::iterator& object_pool<C>::iterator::operator++() {
-	++i;
+	++i_;
 	// Search for next valid datablock
 	while (true) {
-		if (i == db.count) {
+		if (i_ == db_.count) {
 			// Go to next datablock
-			i = 0; ++di;
-			if (di >= storage_pool_.numArrays()) return *this;
-			else db = storage_pool_.array(di);
+			i_ = 0; 
+			++di_;
+			if (di_ >= storage_pool_.numArrays()) return *this;
+			else db_ = storage_pool_.array(di_);
 		}
-		const auto& c = db.data[i];
+		const auto& c = db_.data[i_];
 		if (c.enabled() && !c.toBeRemoved()) break;
-		++i;
+		++i_;
 	}
 	return *this;
 }
 
 template<typename C>
 bool object_pool<C>::iterator::operator==(const typename object_pool<C>::iterator& rhs) const {
-	return (i == rhs.i && di == rhs.di) || (di == rhs.di && i >= rhs.i) || (di > rhs.di);
+	return (i_ == rhs.i_ && di_ == rhs.di_) || (di_ == rhs.di_ && i_ >= rhs.i_) || (di_ > rhs.di_);
 }
 
 template<typename C>
@@ -293,8 +297,8 @@ bool object_pool<C>::iterator::operator!=(const typename object_pool<C>::iterato
 	return !(*this == rhs);
 }
 
-template<typename C> typename object_pool<C>::iterator::reference object_pool<C>::iterator::operator*() { return db.data[i]; }
-template<typename C> typename object_pool<C>::iterator::const_reference object_pool<C>::iterator::operator*() const { return db.data[i]; }
+template<typename C> typename object_pool<C>::iterator::reference object_pool<C>::iterator::operator*() { return db_.data[i_]; }
+template<typename C> typename object_pool<C>::iterator::const_reference object_pool<C>::iterator::operator*() const { return db_.data[i_]; }
 
 }
 
