@@ -26,10 +26,9 @@ public:
     using reference = T&;
     using const_reference = const T&;
     using size_type = int;
+	using aligned_storage_type = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
 
 	struct storage_type {
-        using aligned_storage_type = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
-
 		size_type bytes  = 0;
 		size_type count  = 0;
 		size_type offset = 0;
@@ -37,8 +36,7 @@ public:
 
         storage_type() = default;
         storage_type(size_type bytes, size_type count, size_type offset, T* data):bytes(bytes), count(count), offset(offset), data(data){}
-        ~storage_type(){ if (data != nullptr) delete[]reinterpret_cast<aligned_storage_type*>(data); }
-		storage_type(const storage_type&) = delete;
+        storage_type(const storage_type&) = delete;
 		storage_type& operator=(const storage_type&) = delete;
 		storage_type(storage_type&& rhs):bytes(rhs.bytes), count(rhs.count), offset(rhs.offset), data(rhs.data){
 			rhs.bytes = 0;
@@ -63,6 +61,10 @@ public:
     storage_pool(storage_pool&&) = delete;
 	storage_pool& operator=(storage_pool&&) = delete;
 
+	~storage_pool(){
+		for (auto& s: storages_) if (s.data) delete[]reinterpret_cast<aligned_storage_type*>(s.data);
+	}
+
 	bool append_storage(size_type size) {
 		assert(size > 0);
 
@@ -76,7 +78,7 @@ public:
 
 		auto total_bytes = current_bytes + new_bytes;
 		log_allocation(size_ + size, total_bytes);
-		T* data = reinterpret_cast<T*>(new (std::nothrow) typename storage_type::aligned_storage_type[new_bytes]);
+		T* data = reinterpret_cast<T*>(new (std::nothrow) aligned_storage_type[new_bytes]);
 		if (data == nullptr) {
 			allocation_error(total_bytes);
 			return false;
