@@ -158,11 +158,7 @@ TEST_CASE("object_pool operator<<", "[object_pool]") {
 
     object_pool<hero> heroes {64};
     heroes.emplace_back("batman", 5, 3);
-    std::cout << heroes << "\n";
-
     heroes.emplace_back("spiderman", 6, 3);
-    std::cout << heroes << "\n";
-
     heroes.emplace_back("flash", 3, 4);
     std::cout << heroes << "\n";
 }

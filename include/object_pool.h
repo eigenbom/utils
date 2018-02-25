@@ -14,6 +14,9 @@
 
 namespace bsp {
 
+// Personal note: my object_is_valid() will be something like:
+// value.id!=InvalidId && value.enabled() && !value.toBeRemoved()
+
 template <typename T>
 struct object_is_valid {
 	static bool get(const T& value) {
@@ -76,7 +79,6 @@ public:
 		const_iterator(const iterator& it):object_pool_(it.object_pool_), storage_pool_(it.storage_pool_), i_(it.i_), di_(it.di_), db_(it.db_){}
 		const_iterator& operator++();
         const_iterator operator++(int){ const_iterator tmp(*this); ++(*this); return tmp; }
-		// TODO: const_iterator operator++(int&);
 		bool operator==(const const_iterator& rhs) const;
 		bool operator!=(const const_iterator& rhs) const;
 		reference operator*() const;
@@ -193,12 +195,25 @@ public:
 		freelist_enque_ = static_cast<uint16_t>(capacity_ - 1);
 	}
 
-	// TODO: Wrap these iterators
-	iterator begin() { return iterator(*this, 1); }
+	iterator begin() { 
+		auto it = iterator(*this, 0);
+		auto end_ = end();
+		while (!object_is_valid<T>::get(*it) && it != end_){
+			++it;
+		}
+		return it;
+	}
 
 	iterator end() { return iterator(*this, size()); }
 
-	const_iterator begin() const { return const_iterator(*this, 1); }
+	const_iterator begin() const { 
+		auto it = const_iterator(*this, 0);
+		auto end_ = end();
+		while (!object_is_valid<T>::get(*it) && it != end_){
+			++it;
+		}
+		return it;	
+	}
 
 	const_iterator end() const { return const_iterator(*this, size()); }
 	
@@ -305,6 +320,12 @@ protected:
   
 template <typename T, typename ID> const typename object_pool<T, ID>::size_type object_pool<T, ID>::max_size_;
 
+
+
+
+
+
+
 template<typename T, typename ID>
 object_pool<T, ID>::iterator::iterator(object_pool<T, ID>& array, unsigned int ri) : object_pool_(array), storage_pool_(array.objects_) {
 	i_ = 0;
@@ -409,6 +430,12 @@ std::ostream& operator<<(std::ostream& out, const object_pool<T, ID>& pool){
 	}
 	return out;
 }
+
+
+
+
+
+
 
 } // namespace bsp
 
