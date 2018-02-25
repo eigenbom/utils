@@ -6,6 +6,7 @@
 
 #include <array>
 #include <algorithm>
+#include <cassert>
 #include <cstdint>
 #include <iterator>
 #include <ostream>
@@ -19,9 +20,14 @@ namespace bsp {
 
 template <typename T>
 struct object_is_valid {
-	static bool get(const T& value) {
-		return true;
-    }
+	static bool get(const T&) { return true; }
+};
+
+template <typename T, typename ID>
+struct object_id {
+	static bool has() { return false; }
+	static ID get(const T&) { return 0; }
+	static void set(T&, const ID&) { }
 };
 
 class object_pool_base {
@@ -32,8 +38,7 @@ public:
 
 // A pool that stores objects in contiguous arrays.
 // Requirements: 
-// - ID must be castable to a uint32_t
-// - ID default constructs to 0
+// - ID must be castable to and from a uint32_t
 // Customisation:
 // - TODO
 // Reference: Code is heavily inspired by Bitsquid.
@@ -103,29 +108,30 @@ public:
 	
 	id_type push_back(const T& value = T()) {
 		index_type& in = next_index();
-		// T* new_value = 
-		new (&objects_[in.index]) T(value);
-		// new_value->id = in.id;
-		// TODO: Customisation point?
+		T* nv = new (&objects_[in.index]) T(value);
+		if (object_id<T, ID>::has()){
+			object_id<T, ID>::set(*nv, in.id);
+		}
 		return in.id;
 	}
 
 	template <typename U>
 	id_type push_back(U&& value) {
 		index_type& in = next_index();
-		// T* new_value = 
-		new (&objects_[in.index]) T(std::forward<U>(value));
-		// new_value->id = in.id;
-		// TODO: Customisation point?
+		T* nv = new (&objects_[in.index]) T(std::forward<U>(value));
+		if (object_id<T, ID>::has()){
+			object_id<T, ID>::set(*nv, in.id);
+		}
 		return in.id;
 	}
 
 	template<class... Args> 
 	id_type emplace_back(Args&&... args) {
 		index_type& in = next_index();
-		// T* new_value = 
-		new (&objects_[in.index]) T(std::forward<Args>(args)...);
-		// new_value->id = in.id;
+		T* nv = new (&objects_[in.index]) T(std::forward<Args>(args)...);
+		if (object_id<T, ID>::has()){
+			object_id<T, ID>::set(*nv, in.id);
+		}
 		return in.id;
 	}
 
@@ -150,8 +156,9 @@ public:
 
 	inline bool empty() const { return size() == 0; }
 
+	// Returns the number of objects (invalid or valid)
 	inline size_type size() const { return num_objects_; }
-
+	
 	inline size_type capacity() const { return capacity_; }
 
 	static constexpr size_type max_size() { return max_size_; }
@@ -161,16 +168,17 @@ public:
 		assert(in.id == id);
 
 		const uint32_t id_increment = 0x10000;
-		in.id = id_type { static_cast<uint32_t>(id) + id_increment }; // increment id to avoid conflicts
+		// increment id to avoid conflicts
+		in.id = id_type { static_cast<uint32_t>(id) + id_increment };
 
-		T& o = objects_[in.index];
-		assert(o.id == id);
-		destroy(o);
-
-		// Move object at back into the hole left by deletion
+		T& target = objects_[in.index];
+		if (object_id<T, ID>::has()){
+			ID target_id = object_id<T, ID>::get(target);
+			assert(target_id == id);
+		}
+		destroy(target);
 		if (in.index != num_objects_ - 1) {
-			new (&o) T(std::move(objects_[num_objects_ - 1]));
-			indices_[mask_index(o.id)].index = in.index;
+			move_back_into(target, in);
 		}
 		num_objects_--;
 
@@ -187,7 +195,7 @@ public:
 		num_objects_ = 0;
 		for (size_type i = 0; i < max_size(); ++i) {
 			auto& index = indices_[i];
-			index.id = (id_type) i;
+			index.id = static_cast<id_type>(i);
 			index.next = static_cast<uint16_t>(i + 1);
 			index.index = std::numeric_limits<uint16_t>::max();
 		}
@@ -249,7 +257,7 @@ protected:
 	uint16_t freelist_deque_ = 0;
 
 	struct index_type {
-		id_type id {0};
+		id_type id = static_cast<id_type>(0);
 		uint16_t index = 0;
 		uint16_t next  = 0;
 	};
@@ -306,6 +314,26 @@ protected:
 
 	void destroy(T& object){
 		object.~T();
+	}
+
+	// TODO: select best implementation
+	void move_back_into(T& target, index_type& index_){
+		new (&target) T(std::move(objects_[num_objects_ - 1]));
+		// TODO: check we need to destroy here
+		destroy(objects_[num_objects_ - 1]);
+
+		// Adjust index
+		if (object_id<T, ID>::has()){
+			index(object_id<T, ID>::get(target)).index = index_.index;
+		}
+		else {
+			for (size_type i = 0; i < max_size(); ++i){
+				if (indices_[i].index == num_objects_ - 1){
+					indices_[i].index = index_.index;
+					break;
+				}
+			}
+		}
 	}
 
 	void error(const char* message) const {
@@ -417,11 +445,13 @@ template<typename T, typename ID> typename object_pool<T, ID>::const_iterator::r
 template<typename T, typename ID>
 std::ostream& operator<<(std::ostream& out, const object_pool<T, ID>& pool){
 	out << "object_pool [";
-	if (pool.size() == 0)
+	auto it = pool.begin();
+	auto end = pool.end();
+	if (it == end){
 		out << "]";
+	}
 	else {
-		auto end = pool.end();
-		for (auto it = pool.begin(); it != end; ++it) {
+		for (; it != end; ++it) {
 			if (std::next(it) != end)
 				out << *it << ", ";
 			else
