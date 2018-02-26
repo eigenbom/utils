@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <iterator>
 #include <ostream>
+#include <stdexcept>
 
 #include "storage_pool.h"
 
@@ -118,7 +119,7 @@ public:
 	object_pool& operator=(const object_pool&) = delete;
 	
 	id_type push_back(const T& value = T()) {
-		index_type& in = next_index();
+		index_type& in = new_index();
 		T* nv = new (&objects_[in.index]) T(value);
 		if (object_id<T, ID>::has()){
 			object_id<T, ID>::set(*nv, in.id);
@@ -128,7 +129,7 @@ public:
 
 	template <typename U>
 	id_type push_back(U&& value) {
-		index_type& in = next_index();
+		index_type& in = new_index();
 		T* nv = new (&objects_[in.index]) T(std::forward<U>(value));
 		if (object_id<T, ID>::has()){
 			object_id<T, ID>::set(*nv, in.id);
@@ -138,7 +139,7 @@ public:
 
 	template<class... Args> 
 	id_type emplace_back(Args&&... args) {
-		index_type& in = next_index();
+		index_type& in = new_index();
 		T* nv = new (&objects_[in.index]) T(std::forward<Args>(args)...);
 		if (object_id<T, ID>::has()){
 			object_id<T, ID>::set(*nv, in.id);
@@ -178,8 +179,8 @@ public:
 		index_type& in = index(id);
 		assert(in.id == id);
 
-		const uint32_t id_increment = 0x10000;
 		// increment id to avoid conflicts
+		const uint32_t id_increment = 0x10000;
 		in.id = id_type { static_cast<uint32_t>(id) + id_increment };
 
 		T& target = objects_[in.index];
@@ -238,7 +239,7 @@ public:
 	
 	// Debugging
 	void check_internal_consistency() const {
-		// want to be able to go from deque to enque and cover range
+		// trace freelist
 		int ni = freelist_deque_;
 		if (freelist_deque_ == capacity_) {
 			if (freelist_deque_ != freelist_enque_){
@@ -291,28 +292,30 @@ protected:
 		return indices_[mask_index(id)];
 	}
 
-	index_type& next_index() {
+	index_type& new_index() {
 		if (num_objects_ >= max_size()) {
-			error("object_pool: capacity exceeded");
+			throw std::length_error("object_pool: maximum capacity exceeded");
 		}
 
 		if (num_objects_ >= capacity_) {
-			// Resize
 			size_type new_size = std::min(capacity_ + objects_grow_size_, max_size());
 			if (new_size <= max_size()) {
 				int num_new_objects = new_size - capacity_;
-				const int numResizeAttempts = 10;
-				for (int i = 0; i < numResizeAttempts; i++) {
-					bool added = objects_.append_storage(num_new_objects);
-					if (added) break;
-					else num_new_objects /= 2; // try again with smaller size
+				bool resize_succeeded = false;
+				const int resize_attempts = 8;
+				for (int i = 0; i < resize_attempts && !resize_succeeded; i++) {
+					resize_succeeded = objects_.append_new_storage(num_new_objects);
+					if (!resize_succeeded) num_new_objects /= 2;
+				}
+				if (!resize_succeeded){
+					throw std::length_error("object_pool: cannot append more storage");
 				}
 				capacity_ = objects_.size();
 				indices_[freelist_enque_].next = static_cast<uint16_t>(num_objects_ + 1);
 				freelist_enque_ = static_cast<uint16_t>(capacity_ - 1);
 			}
 			else {
-				error("object_pool: capacity exceeded");
+				throw std::length_error("object_pool: maximum capacity exceeded");
 			}
 		}
 

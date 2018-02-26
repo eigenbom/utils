@@ -20,6 +20,7 @@ namespace bsp {
 // Manages a list of uninitialised storages for T
 // Typically use is to access storage() directly
 // Note: Direct access through operator[] is O(N = storage.storage_count())
+// TODO: Allow storage to shrink
 template<typename T> class storage_pool {
 public:
     using value_type = T;
@@ -49,9 +50,9 @@ public:
 public:
     storage_pool() = default;
 
-	explicit storage_pool(size_type count):size_(0){
+	explicit storage_pool(size_type count){
         assert(count > 0);
-        append_storage(count);
+        append_new_storage(count);
 	}
 
     storage_pool(const storage_pool&) = delete;
@@ -63,7 +64,7 @@ public:
 		for (auto& s: storages_) if (s.data) delete[]reinterpret_cast<aligned_storage_type*>(s.data);
 	}
 
-	bool append_storage(size_type size) {
+	bool append_new_storage(size_type size) {
 		assert(size > 0);
 
 		auto new_bytes = size_of_value() * size;

@@ -63,7 +63,7 @@ TEST_CASE("storage_pool", "[storage_pool]") {
 
     SECTION("adding storage (ints)"){
         storage_pool<int> arr { 512 };
-        bool success = arr.append_storage(256);
+        bool success = arr.append_new_storage(256);
         CHECK(success == true);
         CHECK(arr.storage_count() == 2); 
         CHECK(arr.size() == 512 + 256);
@@ -91,7 +91,7 @@ TEST_CASE("storage_pool", "[storage_pool]") {
 
     SECTION("adding storage (int_vector)"){
         storage_pool<int_vector> arr { 512 };
-        bool success = arr.append_storage(256);
+        bool success = arr.append_new_storage(256);
         CHECK(success == true);
         CHECK(arr.storage_count() == 2); 
         CHECK(arr.size() == 512 + 256);
@@ -111,7 +111,11 @@ TEST_CASE("storage_pool", "[storage_pool]") {
 
         try {
             storage_pool<int_vector> vec;
-            for (int i=0; i<10; i++) vec.append_storage(1 << (18 + i));
+            int shrink_factor = 0;
+            for (int i=0; i<10; i++){
+                bool res = vec.append_new_storage((1 << (18 + i)) >> shrink_factor);
+                if (!res) shrink_factor+=4; // make next allocation smaller
+            }
         }
         catch (const std::bad_array_new_length& e){
             std::cout << "Exception caught: " << e.what() << "\n";
