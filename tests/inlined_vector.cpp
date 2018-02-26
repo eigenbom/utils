@@ -642,9 +642,14 @@ TEST_CASE("inlined_vector move", "[inlined_vector]") {
     CHECK(v1.size() == 5);
     CHECK(v2.size() == 3);
     v2 = std::move(v1);
-    CHECK(v1.size() == 0);
-    CHECK(v2.size() == 5);
-    v2 = std::move(v1);
-    CHECK(v1.size() == 0);
-    CHECK(v2.size() == 0);
+
+	// in-place move
+	std::aligned_storage<sizeof(vector), alignof(vector)>::type storage;
+	new (&storage) vector(std::move(v2));
+	vector* v3 = reinterpret_cast<vector*>(&storage);
+
+	CHECK(v2.size() == 0);
+	CHECK(v3->size() == 3);
+
+	v3->~vector();
 }
