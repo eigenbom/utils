@@ -22,6 +22,57 @@ struct is_iterator<
 			std::is_same<std::output_iterator_tag,
 						 typename std::iterator_traits<T_>::iterator_category>::value>::type>
 	: std::true_type {};
+
+template <class ring_buffer>
+class ring_buffer_iterator : public std::iterator<std::bidirectional_iterator_tag, typename ring_buffer::value_type> {
+public:
+    using reference       = typename ring_buffer::reference;
+    using const_reference = typename ring_buffer::const_reference;
+    using size_type       = typename ring_buffer::size_type;
+
+public:
+    ring_buffer_iterator(ring_buffer& ring):ring_(ring), i_(ring.count()){}
+    ring_buffer_iterator(ring_buffer& ring, size_type offset):ring_(ring),offset_(offset){}		
+    ring_buffer_iterator& operator++(){ i_++; return *this; }
+    ring_buffer_iterator operator++(int){ ring_buffer_iterator tmp(*this); ++(*this); return tmp; }
+    ring_buffer_iterator& operator--(){ i_ = (i_ + ring_.max_size() - 1) % ring_.max_size(); return *this; }
+    ring_buffer_iterator operator--(int){ ring_buffer_iterator tmp(*this); --(*this); return tmp; }
+    bool operator==(const ring_buffer_iterator& rhs) const { return &ring_ == &rhs.ring_ && i_ == rhs.i_; }
+    bool operator!=(const ring_buffer_iterator& rhs) const { return !(*this == rhs); }
+    reference operator*() { return ring_[(i_ + offset_) % ring_.max_size()]; }
+    const_reference operator*() const { return ring_[(i_ + offset_) % ring_.max_size()]; }
+    
+protected:
+    ring_buffer& ring_;
+    size_type offset_ = 0;
+    size_type i_ = 0;     
+
+    friend class const_iterator;   
+};
+
+template <class ring_buffer>
+class ring_buffer_const_iterator : public std::iterator<std::bidirectional_iterator_tag, typename ring_buffer::value_type> {
+public:
+    using reference = typename ring_buffer::const_reference;
+    using size_type = typename ring_buffer::size_type;
+
+public:
+    ring_buffer_const_iterator(const ring_buffer& ring):ring_(ring), i_(ring.count()){}
+    ring_buffer_const_iterator(const ring_buffer& ring, size_type offset):ring_(ring),offset_(offset){}		
+    ring_buffer_const_iterator(const ring_buffer_iterator<ring_buffer>& it):ring_(it.ring_), i_(it.i_), offset_(it.offset_){}        
+    ring_buffer_const_iterator& operator++(){ i_++; return *this; }
+    ring_buffer_const_iterator operator++(int){ ring_buffer_const_iterator tmp(*this); ++(*this); return tmp; }
+    ring_buffer_const_iterator& operator--(){ i_ = (i_ + ring_.max_size() - 1) % ring_.max_size(); return *this; }
+    ring_buffer_const_iterator operator--(int){ ring_buffer_const_iterator tmp(*this); --(*this); return tmp; }
+    bool operator==(const ring_buffer_const_iterator& rhs) const { return &ring_ == &rhs.ring_ && i_ == rhs.i_; }
+    bool operator!=(const ring_buffer_const_iterator& rhs) const { return !(*this == rhs); }
+    reference operator*() const { return ring_[(i_ + offset_) % ring_.max_size()]; }
+    
+protected:
+    const ring_buffer& ring_;
+    size_type offset_ = 0;
+    size_type i_ = 0;
+};
 }
 
 template<typename T, int Capacity> class ring_buffer {
@@ -33,55 +84,8 @@ public:
 	using const_reference = const T&;
 	using size_type = int;
 
-    class iterator : public std::iterator<std::bidirectional_iterator_tag, T> {
-    public:
-        using reference = typename ring_buffer::reference;
-        using const_reference = typename ring_buffer::const_reference;
-        using size_type = typename ring_buffer::size_type;
-    
-	public:
-        iterator(ring_buffer& ring):ring_(ring), i_(ring.count()){}
-		iterator(ring_buffer& ring, size_type offset):ring_(ring),offset_(offset){}		
-        iterator& operator++(){ i_++; return *this; }
-        iterator operator++(int){ iterator tmp(*this); ++(*this); return tmp; }
-        iterator& operator--(){ i_ = (i_ + ring_.max_size() - 1) % ring_.max_size(); return *this; }
-        iterator operator--(int){ iterator tmp(*this); --(*this); return tmp; }
-		bool operator==(const iterator& rhs) const { return &ring_ == &rhs.ring_ && i_ == rhs.i_; }
-        bool operator!=(const iterator& rhs) const { return !(*this == rhs); }
-		reference operator*() { return ring_[(i_ + offset_) % ring_.max_size()]; }
-		const_reference operator*() const { return ring_[(i_ + offset_) % ring_.max_size()]; }
-		
-    protected:
-        ring_buffer& ring_;
-        size_type offset_ = 0;
-		size_type i_ = 0;     
-
-        friend class const_iterator;   
-	};
-
-    class const_iterator : public std::iterator<std::bidirectional_iterator_tag, T> {
-    public:
-        using reference = typename ring_buffer::const_reference;
-        using size_type = typename ring_buffer::size_type;
-    
-	public:
-        const_iterator(const ring_buffer& ring):ring_(ring), i_(ring.count()){}
-		const_iterator(const ring_buffer& ring, size_type offset):ring_(ring),offset_(offset){}		
-        const_iterator(const iterator& it):ring_(it.ring_), i_(it.i_), offset_(it.offset_){}        
-        const_iterator& operator++(){ i_++; return *this; }
-        const_iterator operator++(int){ const_iterator tmp(*this); ++(*this); return tmp; }
-        const_iterator& operator--(){ i_ = (i_ + ring_.max_size() - 1) % ring_.max_size(); return *this; }
-        const_iterator operator--(int){ const_iterator tmp(*this); --(*this); return tmp; }
-		bool operator==(const const_iterator& rhs) const { return &ring_ == &rhs.ring_ && i_ == rhs.i_; }
-        bool operator!=(const const_iterator& rhs) const { return !(*this == rhs); }
-        reference operator*() const { return ring_[(i_ + offset_) % ring_.max_size()]; }
-		
-    protected:
-        const ring_buffer& ring_;
-        size_type offset_ = 0;
-		size_type i_ = 0;
-	};
-
+    using iterator = detail::ring_buffer_iterator<ring_buffer>;
+    using const_iterator = detail::ring_buffer_const_iterator<ring_buffer>;
     using reverse_iterator = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 

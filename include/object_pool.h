@@ -15,6 +15,59 @@
 
 namespace bsp {
 
+namespace detail {
+
+template <class object_pool>
+class object_pool_iterator: public std::iterator<std::input_iterator_tag, typename object_pool::value_type> {
+public:
+	using value_type 	  = typename object_pool::value_type;
+	using reference 	  = typename object_pool::reference;
+	using const_reference = typename object_pool::const_reference;
+	using size_type		  = typename object_pool::size_type;
+
+public:
+	object_pool_iterator(object_pool& array, size_type index);
+	object_pool_iterator& operator++();
+	object_pool_iterator operator++(int){ object_pool_iterator tmp(*this); ++(*this); return tmp; }
+	bool operator==(const object_pool_iterator& rhs) const;
+	bool operator!=(const object_pool_iterator& rhs) const;
+	reference operator*();
+	const_reference operator*() const;
+private:
+	object_pool& object_pool_;
+	storage_pool<value_type>& storage_pool_;
+	size_type i_  = 0;
+	size_type di_ = 0;
+	const typename storage_pool<value_type>::storage_type* db_ = nullptr;
+	
+	template <typename T> friend class object_pool_const_iterator;	
+};
+
+template <class object_pool>
+class object_pool_const_iterator: public std::iterator<std::input_iterator_tag, typename object_pool::value_type> {
+public:
+	using value_type = typename object_pool::value_type;
+	using reference  = typename object_pool::const_reference;
+	using size_type  = typename object_pool::size_type;
+
+public:
+	object_pool_const_iterator(const object_pool& array, size_type index);
+	object_pool_const_iterator(const object_pool_const_iterator&) = default;
+	object_pool_const_iterator(const object_pool_iterator<object_pool>& it):object_pool_(it.object_pool_), storage_pool_(it.storage_pool_), i_(it.i_), di_(it.di_), db_(it.db_){}
+	object_pool_const_iterator& operator++();
+	object_pool_const_iterator operator++(int){ object_pool_const_iterator tmp(*this); ++(*this); return tmp; }
+	bool operator==(const object_pool_const_iterator& rhs) const;
+	bool operator!=(const object_pool_const_iterator& rhs) const;
+	reference operator*() const;
+private:
+	const object_pool& object_pool_;
+	const storage_pool<value_type>& storage_pool_;
+	size_type i_  = 0;
+	size_type di_ = 0;
+	const typename storage_pool<value_type>::storage_type* db_ = nullptr;
+};
+} // namespace detail
+
 // Personal note: my object_is_valid() will be something like:
 // value.id!=InvalidId && value.enabled() && !value.toBeRemoved()
 
@@ -50,52 +103,8 @@ public:
 	using const_reference = const T&;
 	using size_type = int;
 
-	class iterator: public std::iterator<std::input_iterator_tag, value_type> {
-	public:
-		using value_type 	  = typename object_pool::value_type;
-		using reference 	  = typename object_pool::reference;
-		using const_reference = typename object_pool::const_reference;
-		using size_type		  = typename object_pool::size_type;
-
-	public:
-		iterator(object_pool& array, size_type index);
-		iterator& operator++();
-		iterator operator++(int){ iterator tmp(*this); ++(*this); return tmp; }
-		bool operator==(const iterator& rhs) const;
-		bool operator!=(const iterator& rhs) const;
-		reference operator*();
-		const_reference operator*() const;
-	private:
-		object_pool& object_pool_;
-		storage_pool<T>& storage_pool_;
-		size_type i_ = 0;  // element index
-		size_type di_ = 0; // storage index
-		const typename storage_pool<T>::storage_type* db_ = nullptr;
-		friend class const_iterator;
-	};
-
-	class const_iterator: public std::iterator<std::input_iterator_tag, value_type> {
-	public:
-		using value_type 	  = typename object_pool::value_type;
-		using reference 	  = typename object_pool::const_reference;
-		using size_type =	  typename object_pool::size_type;
-
-	public:
-		const_iterator(const object_pool& array, size_type index);
-		const_iterator(const const_iterator&) = default;
-		const_iterator(const iterator& it):object_pool_(it.object_pool_), storage_pool_(it.storage_pool_), i_(it.i_), di_(it.di_), db_(it.db_){}
-		const_iterator& operator++();
-        const_iterator operator++(int){ const_iterator tmp(*this); ++(*this); return tmp; }
-		bool operator==(const const_iterator& rhs) const;
-		bool operator!=(const const_iterator& rhs) const;
-		reference operator*() const;
-	private:
-		const object_pool& object_pool_;
-		const storage_pool<T>& storage_pool_;
-		size_type i_ = 0;  // element index
-		size_type di_ = 0; // storage index
-		const typename storage_pool<T>::storage_type* db_ = nullptr;
-	};
+	using iterator = detail::object_pool_iterator<object_pool>;
+	using const_iterator = detail::object_pool_const_iterator<object_pool>;
 
 public:
 	// PRE: size <= max_size()
@@ -344,105 +353,14 @@ protected:
 #endif
 	}
 
+	template<typename OP> friend class detail::object_pool_iterator;
+	template<typename OP> friend class detail::object_pool_const_iterator;
+
 	template<typename T_, typename ID_>
 	friend std::ostream& operator<<(std::ostream&, const object_pool<T_, ID_>&);
 };
   
 template <typename T, typename ID> const typename object_pool<T, ID>::size_type object_pool<T, ID>::max_size_;
-
-
-
-
-
-
-
-template<typename T, typename ID>
-object_pool<T, ID>::iterator::iterator(object_pool<T, ID>& array, size_type ri) : object_pool_(array), storage_pool_(array.objects_) {
-	i_ = 0;
-	di_ = 0;
-	for (; di_ < storage_pool_.storage_count(); di_++) {
-		auto& dbz = storage_pool_.storage(di_);
-		if (ri >= dbz.offset && ri < (dbz.offset + dbz.count)) {
-			i_ = ri - dbz.offset;
-			db_ = &dbz;
-			break;
-		}
-	}
-}
-
-template<typename T, typename ID> 
-typename object_pool<T, ID>::iterator& object_pool<T, ID>::iterator::operator++() {
-	while (true) {
-		++i_;
-		if (i_ == db_->count) {
-			// Go to next datablock
-			i_ = 0; 
-			++di_;
-			if (di_ >= storage_pool_.storage_count()) return *this;
-			else db_ = &storage_pool_.storage(di_);
-		}
-		const auto& value = db_->data[i_];
-		if (object_is_valid<T>::get(value)) break;
-	}
-	return *this;
-}
-
-template<typename T, typename ID>
-bool object_pool<T, ID>::iterator::operator==(const typename object_pool<T, ID>::iterator& rhs) const {
-	return (i_ == rhs.i_ && di_ == rhs.di_) || (di_ == rhs.di_ && i_ >= rhs.i_) || (di_ > rhs.di_);
-}
-
-template<typename T, typename ID>
-bool object_pool<T, ID>::iterator::operator!=(const typename object_pool<T, ID>::iterator& rhs) const {
-	return !(*this == rhs);
-}
-
-template<typename T, typename ID> typename object_pool<T, ID>::iterator::reference object_pool<T, ID>::iterator::operator*() { return db_->data[i_]; }
-template<typename T, typename ID> typename object_pool<T, ID>::iterator::const_reference object_pool<T, ID>::iterator::operator*() const { return db_->data[i_]; }
-
-
-template<typename T, typename ID>
-object_pool<T, ID>::const_iterator::const_iterator(const object_pool<T, ID>& array, size_type ri) : object_pool_(array), storage_pool_(array.objects_) {
-	i_ = 0;
-	di_ = 0;
-	for (; di_ < storage_pool_.storage_count(); di_++) {
-		auto& dbz = storage_pool_.storage(di_);
-		if (ri >= dbz.offset && ri < (dbz.offset + dbz.count)) {
-			i_ = ri - dbz.offset;
-			db_ = &dbz;
-			break;
-		}
-	}
-}
-
-template<typename T, typename ID> 
-typename object_pool<T, ID>::const_iterator& object_pool<T, ID>::const_iterator::operator++() {
-	while (true) {
-		++i_;
-		if (i_ == db_->count) {
-			// Go to next datablock
-			i_ = 0; 
-			++di_;
-			if (di_ >= storage_pool_.storage_count()) return *this;
-			else db_ = &storage_pool_.storage(di_);
-		}
-		const auto& value = db_->data[i_];
-		if (object_is_valid<T>::get(value)) break;
-	}
-	return *this;
-}
-
-template<typename T, typename ID>
-bool object_pool<T, ID>::const_iterator::operator==(const typename object_pool<T, ID>::const_iterator& rhs) const {
-	return (i_ == rhs.i_ && di_ == rhs.di_) || (di_ == rhs.di_ && i_ >= rhs.i_) || (di_ > rhs.di_);
-}
-
-template<typename T, typename ID>
-bool object_pool<T, ID>::const_iterator::operator!=(const typename object_pool<T, ID>::const_iterator& rhs) const {
-	return !(*this == rhs);
-}
-
-template<typename T, typename ID> typename object_pool<T, ID>::const_iterator::reference object_pool<T, ID>::const_iterator::operator*() const { return db_->data[i_]; }
 
 template<typename T, typename ID>
 std::ostream& operator<<(std::ostream& out, const object_pool<T, ID>& pool){
@@ -463,12 +381,98 @@ std::ostream& operator<<(std::ostream& out, const object_pool<T, ID>& pool){
 	return out;
 }
 
+}
+
+// Iterator implementations
+
+namespace bsp {
+namespace detail {
+
+template<class object_pool>
+object_pool_iterator<object_pool>::object_pool_iterator(object_pool& array, typename object_pool::size_type ri) : object_pool_(array), storage_pool_(array.objects_), i_(0), di_(0) {
+	for (; di_ < storage_pool_.storage_count(); di_++) {
+		auto& dbz = storage_pool_.storage(di_);
+		if (ri >= dbz.offset && ri < (dbz.offset + dbz.count)) {
+			i_ = ri - dbz.offset;
+			db_ = &dbz;
+			break;
+		}
+	}
+}
+
+template<class object_pool>
+object_pool_iterator<object_pool>& object_pool_iterator<object_pool>::operator++() {
+	while (true) {
+		++i_;
+		if (i_ == db_->count) {
+			// Go to next datablock
+			i_ = 0; 
+			++di_;
+			if (di_ >= storage_pool_.storage_count()) return *this;
+			else db_ = &storage_pool_.storage(di_);
+		}
+		const auto& value = db_->data[i_];
+		if (object_is_valid<typename object_pool::value_type>::get(value)) break;
+	}
+	return *this;
+}
+
+template<class object_pool>
+bool object_pool_iterator<object_pool>::operator==(const object_pool_iterator<object_pool>& rhs) const {
+	return (i_ == rhs.i_ && di_ == rhs.di_) || (di_ == rhs.di_ && i_ >= rhs.i_) || (di_ > rhs.di_);
+}
+
+template<class object_pool>
+bool object_pool_iterator<object_pool>::operator!=(const object_pool_iterator<object_pool>& rhs) const {
+	return !(*this == rhs);
+}
+
+template<class object_pool> typename object_pool_iterator<object_pool>::reference object_pool_iterator<object_pool>::operator*() { return db_->data[i_]; }
+template<class object_pool> typename object_pool_iterator<object_pool>::const_reference object_pool_iterator<object_pool>::operator*() const { return db_->data[i_]; }
 
 
+template<class object_pool>
+object_pool_const_iterator<object_pool>::object_pool_const_iterator(const object_pool& array, typename object_pool::size_type ri) : object_pool_(array), storage_pool_(array.objects_), i_(0), di_(0) {
+	for (; di_ < storage_pool_.storage_count(); di_++) {
+		auto& dbz = storage_pool_.storage(di_);
+		if (ri >= dbz.offset && ri < (dbz.offset + dbz.count)) {
+			i_ = ri - dbz.offset;
+			db_ = &dbz;
+			break;
+		}
+	}
+}
 
+template<class object_pool>
+object_pool_const_iterator<object_pool>& object_pool_const_iterator<object_pool>::operator++() {
+	while (true) {
+		++i_;
+		if (i_ == db_->count) {
+			// Go to next datablock
+			i_ = 0; 
+			++di_;
+			if (di_ >= storage_pool_.storage_count()) return *this;
+			else db_ = &storage_pool_.storage(di_);
+		}
+		const auto& value = db_->data[i_];
+		if (object_is_valid<typename object_pool::value_type>::get(value)) break;
+	}
+	return *this;
+}
 
+template<class object_pool>
+bool object_pool_const_iterator<object_pool>::operator==(const object_pool_const_iterator<object_pool>& rhs) const {
+	return (i_ == rhs.i_ && di_ == rhs.di_) || (di_ == rhs.di_ && i_ >= rhs.i_) || (di_ > rhs.di_);
+}
 
+template<class object_pool>
+bool object_pool_const_iterator<object_pool>::operator!=(const object_pool_const_iterator<object_pool>& rhs) const {
+	return !(*this == rhs);
+}
 
+template<class object_pool> typename object_pool_const_iterator<object_pool>::reference object_pool_const_iterator<object_pool>::operator*() const { return db_->data[i_]; }
+
+}
 } // namespace bsp
 
 #endif
