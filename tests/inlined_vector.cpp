@@ -649,7 +649,7 @@ TEST_CASE("inlined_vector move", "[inlined_vector]") {
 	vector* v3 = reinterpret_cast<vector*>(&storage);
 
 	CHECK(v2.size() == 0);
-	CHECK(v3->size() == 3);
+	CHECK(v3->size() == 5);
 
 	v3->~vector();
 }
