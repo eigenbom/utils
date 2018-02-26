@@ -10,20 +10,11 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include <typeinfo>
 #include <utility>
 #include <vector>
 
-#define BSP_STORAGE_POOL_LOG_ERROR(message) std::cerr << "Error! " << message << "\n";
 #define BSP_OBJECT_POOL_LOG_ERROR(message) std::cerr << "Error! " << message << "\n";
-
-bool s_debug_log_allocations = false;
-#define BSP_STORAGE_POOL_ALLOCATION(message, bytes) do { \
-        if (s_debug_log_allocations) {\
-			if (bytes>0) {std::cout << "Memory: Allocated " << (bytes / 1024) << "kB \"" << message << "\"\n";} \
-            else {std::cout << "Memory: Deallocated " << (-bytes / 1024) << "kB \"" << message << "\"\n";} \
-		}} while(false)
-
-#include <typeinfo>
 
 #include "../include/storage_pool.h"
 #include "../include/object_pool.h"
@@ -34,7 +25,27 @@ using bsp::object_pool;
 using bsp::storage_pool;
 using Catch::Equals;
 
+static bool s_debug_log_allocations = false;
+
 namespace bsp {
+    // Hooks
+    template <typename T>
+    void log_error(const storage_pool<T>& pool, const char* message){
+        std::cerr << "Error: storage_pool<" << type_name<T>::get() << ">:" << message << "\n";
+    }
+
+    template <typename T>
+    void log_allocation(const storage_pool<T>& pool, int count, int bytes){
+        if (s_debug_log_allocations){
+            if (bytes>0){
+                std::cout << "Memory: storage_pool<" << type_name<T>::get() << "> allocated " << (bytes / 1024) << "kB (" << count << " objects)\n";
+            }
+            else {
+                std::cout << "Memory: storage_pool<" << type_name<T>::get() << "> deallocated " << (-bytes / 1024) << "kB (" << -count << " objects)\n";
+            }
+        }
+    }
+
     template <typename T>
     struct type_name<std::vector<T>> {
         static std::string get(){
@@ -62,7 +73,23 @@ TEST_CASE("storage_pool print allocations", "[storage_pool]"){
     }
 
     SECTION("default construction"){
+        // Just testing type_name
         storage_pool<std::vector<std::string>> arr {512};
+    }
+
+    SECTION("default construction"){
+        storage_pool<int> arr {512};
+        CHECK(arr.storage_count() == 1);
+        arr.allocate(256);
+        CHECK(arr.storage_count() == 2);
+        arr.allocate(128);
+        CHECK(arr.storage_count() == 3);
+        arr.deallocate();
+        CHECK(arr.storage_count() == 2);
+        arr.deallocate();
+        CHECK(arr.storage_count() == 1);
+        arr.deallocate();
+        CHECK(arr.storage_count() == 0);
     }
 
     s_debug_log_allocations = false;

@@ -19,8 +19,11 @@
 
 namespace bsp {
 
-template <typename T>
-struct type_name {
+template <typename T> void log_allocation(const T& owner, int count, int bytes){}
+
+template <typename T> void log_error(const T& owner, const char* message){}
+
+template <typename T> struct type_name {
 	static std::string get(){
 		return std::string(typeid(T).name());
 	}
@@ -70,7 +73,7 @@ public:
 	storage_pool& operator=(storage_pool&&) = delete;
 
 	~storage_pool(){
-		if (size() > 0) log_deallocation(size(), bytes());
+		if (size() > 0) log_deallocation_internal(size(), bytes());
 		for (auto& s: storages_) destroy(s);
 	}
 
@@ -86,7 +89,7 @@ public:
 		}
 
 		auto total_bytes = current_bytes + new_bytes;
-		log_allocation(size_ + size, total_bytes);
+		log_allocation_internal(size_ + size, total_bytes);
 		T* data = reinterpret_cast<T*>(new (std::nothrow) aligned_storage_type[new_bytes]);
 		if (data == nullptr) {
 			allocation_error(total_bytes);
@@ -109,7 +112,7 @@ public:
 		size_ -= count;
 		destroy(back_storage);
 		storages_.pop_back();
-		log_deallocation(count, num_bytes);
+		log_deallocation_internal(count, num_bytes);
 	}
 
 	inline size_type size() const { return size_; }
@@ -144,35 +147,24 @@ protected:
 		s.data = nullptr;		
 	}
 
-	void log_allocation(size_type count, size_type bytes){
-#ifdef BSP_STORAGE_POOL_ALLOCATION
-        std::ostringstream oss;
-		oss << "storage_pool<" << type_name<T>::get() << "> allocating " << count << " elements";
-        BSP_STORAGE_POOL_ALLOCATION(oss.str(), bytes);        
-#endif
+	void log_allocation_internal(size_type count, size_type bytes) const {
+		log_allocation(*this, count, bytes);
 	}
 
-	void log_deallocation(size_type count, size_type bytes){
-#ifdef BSP_STORAGE_POOL_ALLOCATION
-        std::ostringstream oss;
-		oss << "storage_pool<" << type_name<T>::get() << "> deallocating " << count << " elements";
-        BSP_STORAGE_POOL_ALLOCATION(oss.str(), -bytes);
-#endif
+	void log_deallocation_internal(size_type count, size_type bytes) const {
+		log_allocation(*this, count, -bytes);
 	}
 
 	void allocation_error(size_type bytes){
 #ifdef BSP_STORAGE_POOL_LOG_ERROR
         std::ostringstream oss;
-		oss << "storage_pool<" << type_name<T>::get() << "> couldn't allocate new memory. "
-			<< "Attempted total " << (bytes / 1024) << "kB";
-        BSP_STORAGE_POOL_LOG_ERROR(oss.str());
+		oss << "couldn't allocate new memory (attempted " << (bytes / 1024) << "kB)";
+        log_error(*this, oss.str().c_str());
 #endif
 	}
 
 	void error(const char* message) const {
-#ifdef BSP_STORAGE_POOL_LOG_ERROR
-		BSP_STORAGE_POOL_LOG_ERROR(message);
-#endif
+		log_error(*this, message);
 	}
 };
 
