@@ -55,9 +55,10 @@ public:
 		using value_type 	  = typename object_pool::value_type;
 		using reference 	  = typename object_pool::reference;
 		using const_reference = typename object_pool::const_reference;
+		using size_type		  = typename object_pool::size_type;
 
 	public:
-		iterator(object_pool& array, unsigned int index);
+		iterator(object_pool& array, size_type index);
 		iterator& operator++();
 		iterator operator++(int){ iterator tmp(*this); ++(*this); return tmp; }
 		bool operator==(const iterator& rhs) const;
@@ -67,8 +68,8 @@ public:
 	private:
 		object_pool& object_pool_;
 		storage_pool<T>& storage_pool_;
-		unsigned int i_ = 0;  // element index
-		unsigned int di_ = 0; // storage index
+		size_type i_ = 0;  // element index
+		size_type di_ = 0; // storage index
 		const typename storage_pool<T>::storage_type* db_ = nullptr;
 		friend class const_iterator;
 	};
@@ -77,9 +78,10 @@ public:
 	public:
 		using value_type 	  = typename object_pool::value_type;
 		using reference 	  = typename object_pool::const_reference;
+		using size_type =	  typename object_pool::size_type;
 
 	public:
-		const_iterator(const object_pool& array, unsigned int index);
+		const_iterator(const object_pool& array, size_type index);
 		const_iterator(const const_iterator&) = default;
 		const_iterator(const iterator& it):object_pool_(it.object_pool_), storage_pool_(it.storage_pool_), i_(it.i_), di_(it.di_), db_(it.db_){}
 		const_iterator& operator++();
@@ -90,8 +92,8 @@ public:
 	private:
 		const object_pool& object_pool_;
 		const storage_pool<T>& storage_pool_;
-		unsigned int i_ = 0;  // element index
-		unsigned int di_ = 0; // storage index
+		size_type i_ = 0;  // element index
+		size_type di_ = 0; // storage index
 		const typename storage_pool<T>::storage_type* db_ = nullptr;
 	};
 
@@ -355,7 +357,7 @@ template <typename T, typename ID> const typename object_pool<T, ID>::size_type 
 
 
 template<typename T, typename ID>
-object_pool<T, ID>::iterator::iterator(object_pool<T, ID>& array, unsigned int ri) : object_pool_(array), storage_pool_(array.objects_) {
+object_pool<T, ID>::iterator::iterator(object_pool<T, ID>& array, size_type ri) : object_pool_(array), storage_pool_(array.objects_) {
 	i_ = 0;
 	di_ = 0;
 	for (; di_ < storage_pool_.storage_count(); di_++) {
@@ -400,7 +402,7 @@ template<typename T, typename ID> typename object_pool<T, ID>::iterator::const_r
 
 
 template<typename T, typename ID>
-object_pool<T, ID>::const_iterator::const_iterator(const object_pool<T, ID>& array, unsigned int ri) : object_pool_(array), storage_pool_(array.objects_) {
+object_pool<T, ID>::const_iterator::const_iterator(const object_pool<T, ID>& array, size_type ri) : object_pool_(array), storage_pool_(array.objects_) {
 	i_ = 0;
 	di_ = 0;
 	for (; di_ < storage_pool_.storage_count(); di_++) {

@@ -71,10 +71,21 @@ std::ostream& operator<<(std::ostream& out, const hero& h){
     return out << "hero {name: \"" << h.name << "\", hp: " << h.hp << ", mp: " << h.mp << "}";
 }
 
+
+TEST_CASE("object_pool stack overflow??", "[object_pool]") {
+	SECTION("test 1") {
+		object_pool<hero> heroes{ 64 };
+	}
+
+	SECTION("test 2") {
+		object_pool<hero> heroes{ 64 };
+	}
+}
+
 TEST_CASE("object_pool (int)", "[object_pool]") {
     object_pool<int> pool {512};
     CHECK(pool.size() == 0);    
-
+	
     SECTION("can push back empty"){
         pool.push_back();
         CHECK(pool.size() == 1);
@@ -102,9 +113,9 @@ TEST_CASE("object_pool (int)", "[object_pool]") {
     }
 
     SECTION("can remove"){
-        uint32_t ids[8];
+        uint32_t ids[10];
         for (int i=0; i<10; i++){
-            ids[i] = pool.emplace_back(std::pow(2, i));
+            ids[i] = pool.push_back((int) std::pow(2, i));
         }
         CHECK(pool.size() == 10);
         std::cout << "Should print powers of 2 from 0 to 9\n";
