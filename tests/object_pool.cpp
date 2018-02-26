@@ -16,40 +16,150 @@
 #define BSP_STORAGE_POOL_LOG_ERROR(message) std::cerr << "Error! " << message << "\n";
 #define BSP_OBJECT_POOL_LOG_ERROR(message) std::cerr << "Error! " << message << "\n";
 
-const bool DebugLogAllocations = false;
+bool s_debug_log_allocations = false;
 #define BSP_STORAGE_POOL_ALLOCATION(message, bytes) do { \
-        if (DebugLogAllocations) \
-			std::cout << "Memory: Allocated " << (bytes / 1024) << "kB \"" << message << "\"\n"; \
-		} while(false)
+        if (s_debug_log_allocations) {\
+			if (bytes>0) {std::cout << "Memory: Allocated " << (bytes / 1024) << "kB \"" << message << "\"\n";} \
+            else {std::cout << "Memory: Deallocated " << (-bytes / 1024) << "kB \"" << message << "\"\n";} \
+		}} while(false)
 
 #include <typeinfo>
 
-namespace {
-    template <typename T, typename U>
-    using type_check = typename std::enable_if<std::is_same<typename std::decay<T>::type, U>::value, void>::type*;
-
-    template <typename T> 
-    std::string type_name(T* = 0){
-        return typeid(T).name();
-    }
-
-    template <typename T, typename U = typename T::value_type> 
-    std::string type_name(type_check<T, std::vector<U>> = 0){
-        std::ostringstream oss;
-        oss << "vector<" << type_name<U>() << ">";
-        return oss.str();
-    }
-}
-
-#define BSP_TYPE_NAME(type) type_name<type>()
-
+#include "../include/storage_pool.h"
 #include "../include/object_pool.h"
-
 #include "catch.hpp"
 #include "container_matcher.h"
 
 using bsp::object_pool;
+using bsp::storage_pool;
 using Catch::Equals;
+
+namespace bsp {
+    template <typename T>
+    struct type_name<std::vector<T>> {
+        static std::string get(){
+            std::ostringstream oss;
+            oss << "vector<" << type_name<T>::get() << ">";
+            return oss.str();
+        }
+    };
+
+    template <>
+    struct type_name<std::string> {
+        static std::string get(){
+            return "string";
+        }
+    };
+}
+
+#define HEADER() std::cout << "## "
+
+TEST_CASE("storage_pool print allocations", "[storage_pool]"){
+    s_debug_log_allocations = true;
+
+    SECTION("default construction"){
+        storage_pool<int> arr {512};
+    }
+
+    SECTION("default construction"){
+        storage_pool<std::vector<std::string>> arr {512};
+    }
+
+    s_debug_log_allocations = false;
+}
+
+TEST_CASE("storage_pool", "[storage_pool]") {    
+    SECTION("default construction (ints)"){
+        storage_pool<int> arr;
+        CHECK(arr.storage_count() == 0); 
+    }
+
+    SECTION("construction (ints)"){
+        storage_pool<int> arr { 512 };
+        CHECK(arr.storage_count() == 1); 
+        CHECK(arr.size() == 512);
+    }
+
+    SECTION("adding storage (ints)"){
+        storage_pool<int> arr { 512 };
+        bool success = arr.allocate(256);
+        CHECK(success == true);
+        CHECK(arr.storage_count() == 2); 
+        CHECK(arr.size() == 512 + 256);
+    }
+
+    SECTION("creating and destroying ints"){
+        storage_pool<int> arr { 512 };
+        new (&arr[0]) int {42};
+        CHECK(arr[0] == 42);
+        // No need to destroy
+    }
+
+    using int_vector = std::vector<int>;
+
+    SECTION("default construction (int_vector)"){
+        storage_pool<int_vector> arr;
+        CHECK(arr.storage_count() == 0); 
+    }
+
+    SECTION("construction (int_vector)"){
+        storage_pool<int_vector> arr { 512 };
+        CHECK(arr.storage_count() == 1); 
+        CHECK(arr.size() == 512);
+    }
+
+    SECTION("adding storage (int_vector)"){
+        storage_pool<int_vector> arr { 512 };
+        bool success = arr.allocate(256);
+        CHECK(success == true);
+        CHECK(arr.storage_count() == 2); 
+        CHECK(arr.size() == 512 + 256);
+    }
+
+    SECTION("creating and destroying (int_vector)"){
+        storage_pool<int_vector> arr { 512 };
+        new (&arr[0]) int_vector(100, 42);
+        CHECK(arr[0].size() == 100);
+        CHECK(arr[0][0] == 42);
+        (&arr[0])->~int_vector();
+    }
+
+     SECTION("construction and destruction (ints)"){
+        storage_pool<int> arr;
+        CHECK(arr.storage_count() == 0);
+        CHECK(arr.size() == 0);
+        arr.allocate(512);
+        CHECK(arr.storage_count() == 1);
+        CHECK(arr.size() == 512);
+        arr.allocate(512);
+        CHECK(arr.storage_count() == 2);
+        CHECK(arr.size() == 1024);
+        arr.deallocate();
+        CHECK(arr.storage_count() == 1);
+        CHECK(arr.size() == 512);
+        arr.deallocate();
+        CHECK(arr.storage_count() == 0);
+        CHECK(arr.size() == 0);
+    }
+
+#ifdef BSP_STORAGE_POOL_LOG_ERROR
+     SECTION("allocation error"){
+        HEADER() << "Should cause a bad_array_new_length exception or print an allocation error...\n";
+
+        try {
+            storage_pool<int_vector> vec;
+            int shrink_factor = 0;
+            for (int i=0; i<10; i++){
+                bool res = vec.allocate((1 << (18 + i)) >> shrink_factor);
+                if (!res) shrink_factor+=4; // make next allocation smaller
+            }
+        }
+        catch (const std::bad_array_new_length& e){
+            std::cout << "Exception caught: " << e.what() << "\n";
+        }
+     }
+#endif
+}
 
 struct hero {
     const char* name = nullptr;
@@ -71,8 +181,7 @@ std::ostream& operator<<(std::ostream& out, const hero& h){
     return out << "hero {name: \"" << h.name << "\", hp: " << h.hp << ", mp: " << h.mp << "}";
 }
 
-
-TEST_CASE("object_pool stack overflow??", "[object_pool]") {
+TEST_CASE("object_pool msvc stack overflow??", "[object_pool]") {
 	SECTION("test 1") {
 		object_pool<hero> heroes{ 64 };
 	}
@@ -118,14 +227,14 @@ TEST_CASE("object_pool (int)", "[object_pool]") {
             ids[i] = pool.push_back((int) std::pow(2, i));
         }
         CHECK(pool.size() == 10);
-        std::cout << "Should print powers of 2 from 0 to 9\n";
+        HEADER() << "Should print powers of 2 from 0 to 9\n";
         std::cout << pool << "\n";
 
         for (int i=0; i<10; i+=2){
             pool.remove(i);
         }
         CHECK(pool.size() == 5);
-        std::cout << "Should print every other power of 2 from 1 to 9\n";
+        HEADER() << "Should print every other power of 2 from 1 to 9\n";
         std::cout << pool << "\n";
     }
 }
@@ -192,11 +301,20 @@ TEST_CASE("object_pool object_is_valid (hero)", "[object_pool]") {
     CHECK(num_iters == 3); // Should skip superman because hp = 0
 }
 
+TEST_CASE("object_pool (grow and clear)", "[object_pool]") {
+    object_pool<hero> pool {512};
+    CHECK(pool.capacity() == 512);
+    for (int i=0; i<513; ++i) pool.emplace_back("batman", 5, 5);
+    CHECK(pool.capacity() == 1024);
+    pool.clear();
+    CHECK(pool.capacity() == 512);
+}
+
 TEST_CASE("object_pool operator<<", "[object_pool]") {
-    std::cout << "testing object_pool operator<<\n";
+    HEADER() << "testing object_pool operator<<\n";
 
     SECTION("all valid"){
-        std::cout << "Should print 3 heroes...\n";
+        HEADER() << "Should print 3 heroes...\n";
         object_pool<hero> heroes {64};
         heroes.emplace_back("batman", 5, 3);
         heroes.emplace_back("spiderman", 6, 3);
@@ -205,7 +323,7 @@ TEST_CASE("object_pool operator<<", "[object_pool]") {
     }
 
     SECTION("start invalid"){
-        std::cout << "Should print 3 heroes...\n";
+        HEADER() << "Should print 3 heroes...\n";
         object_pool<hero> heroes {64};
         heroes.emplace_back("superman", 0, 3);
         heroes.emplace_back("batman", 5, 3);
@@ -215,7 +333,7 @@ TEST_CASE("object_pool operator<<", "[object_pool]") {
     }
 
     SECTION("middle invalid"){
-        std::cout << "Should print 3 heroes...\n";
+        HEADER() << "Should print 3 heroes...\n";
         object_pool<hero> heroes {64};
         heroes.emplace_back("batman", 5, 3);
         heroes.emplace_back("superman", 0, 3);
@@ -225,7 +343,7 @@ TEST_CASE("object_pool operator<<", "[object_pool]") {
     }
 
     SECTION("end invalid"){
-        std::cout << "Should print 3 heroes...\n";
+        HEADER() << "Should print 3 heroes...\n";
         object_pool<hero> heroes {64};
         heroes.emplace_back("batman", 5, 3);
         heroes.emplace_back("spiderman", 6, 3);
@@ -235,7 +353,7 @@ TEST_CASE("object_pool operator<<", "[object_pool]") {
     }
 
     SECTION("all invalid"){
-        std::cout << "Should print 0 heroes...\n";
+        HEADER() << "Should print 0 heroes...\n";
         object_pool<hero> heroes {64};
         heroes.emplace_back("batman", 0, 3);
         heroes.emplace_back("spiderman", 0, 3);

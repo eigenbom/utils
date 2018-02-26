@@ -25,8 +25,7 @@ OBJECTS = tests.o 		\
 	fixed_map.o 		\
 	fixed_string.o 		\
 	object_pool.o 		\
-	ring_buffer.o		\
-	storage_pool.o
+	ring_buffer.o
 
 OBJECTS_DEBUG = $(addprefix $(OBJECT_DIR_DEBUG)/, $(OBJECTS))
 

@@ -1,7 +1,7 @@
 // #define BSP_STORAGE_POOL_LOG_ERROR(message) to log errors
 // #define BSP_STORAGE_POOL_ALLOCATION(message, bytes) to report allocations
 // For either of these you also need
-// #define BSP_TYPE_NAME(type) to return a string representing the typename
+// - template <typename T> struct type_name { static std::string get(){ return .... } }
 
 #ifndef BSP_STORAGE_POOL_H
 #define BSP_STORAGE_POOL_H
@@ -10,12 +10,21 @@
 #include <limits>
 #include <type_traits>
 #include <list>
+#include <string>
+#include <typeinfo>
 
 #if defined(BSP_STORAGE_POOL_LOG_ERROR) || defined(BSP_STORAGE_POOL_ALLOCATION)
 #include <sstream>
 #endif
 
 namespace bsp {
+
+template <typename T>
+struct type_name {
+	static std::string get(){
+		return std::string(typeid(T).name());
+	}
+};
 
 // Manages a list of uninitialised storages for T
 // Typically use is to access storage() directly
@@ -52,7 +61,7 @@ public:
 
 	explicit storage_pool(size_type count){
         assert(count > 0);
-        append_new_storage(count);
+        allocate(count);
 	}
 
     storage_pool(const storage_pool&) = delete;
@@ -61,10 +70,11 @@ public:
 	storage_pool& operator=(storage_pool&&) = delete;
 
 	~storage_pool(){
-		for (auto& s: storages_) if (s.data) delete[]reinterpret_cast<aligned_storage_type*>(s.data);
+		if (size() > 0) log_deallocation(size(), bytes());
+		for (auto& s: storages_) destroy(s);
 	}
 
-	bool append_new_storage(size_type size) {
+	bool allocate(size_type size) {
 		assert(size > 0);
 
 		auto new_bytes = size_of_value() * size;
@@ -90,6 +100,18 @@ public:
 		}
 	}
 	
+	// Deallocates the most recently allocated storage
+	void deallocate(){
+		assert (storages_.size() > 0);
+		auto& back_storage = storages_.back();
+		auto num_bytes = back_storage.bytes;
+		auto count = back_storage.count;
+		size_ -= count;
+		destroy(back_storage);
+		storages_.pop_back();
+		log_deallocation(count, num_bytes);
+	}
+
 	inline size_type size() const { return size_; }
 
 	inline size_type bytes() const { return size_ * size_of_value(); }
@@ -115,20 +137,33 @@ protected:
 	std::list<storage_type> storages_;
 
 protected:
-	inline const size_type size_of_value() { return static_cast<size_type>(sizeof(T)); };
+	inline const size_type size_of_value() const { return static_cast<size_type>(sizeof(T)); };
+
+	void destroy(storage_type& s){
+		if (s.data) delete[]reinterpret_cast<aligned_storage_type*>(s.data);
+		s.data = nullptr;		
+	}
 
 	void log_allocation(size_type count, size_type bytes){
 #ifdef BSP_STORAGE_POOL_ALLOCATION
         std::ostringstream oss;
-		oss << "storage_pool<" << BSP_TYPE_NAME(T) << "> allocating " << count << " elements";
+		oss << "storage_pool<" << type_name<T>::get() << "> allocating " << count << " elements";
         BSP_STORAGE_POOL_ALLOCATION(oss.str(), bytes);        
+#endif
+	}
+
+	void log_deallocation(size_type count, size_type bytes){
+#ifdef BSP_STORAGE_POOL_ALLOCATION
+        std::ostringstream oss;
+		oss << "storage_pool<" << type_name<T>::get() << "> deallocating " << count << " elements";
+        BSP_STORAGE_POOL_ALLOCATION(oss.str(), -bytes);
 #endif
 	}
 
 	void allocation_error(size_type bytes){
 #ifdef BSP_STORAGE_POOL_LOG_ERROR
         std::ostringstream oss;
-		oss << "storage_pool<" << BSP_TYPE_NAME(T) << "> couldn't allocate new memory. "
+		oss << "storage_pool<" << type_name<T>::get() << "> couldn't allocate new memory. "
 			<< "Attempted total " << (bytes / 1024) << "kB";
         BSP_STORAGE_POOL_LOG_ERROR(oss.str());
 #endif

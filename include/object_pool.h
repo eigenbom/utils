@@ -108,13 +108,19 @@ public:
 	using const_iterator = detail::object_pool_const_iterator<object_pool>;
 
 public:
-	// PRE: size <= max_size()
-	explicit object_pool(size_type size = max_size())
-	:objects_grow_size_{size}, capacity_{size}, objects_{size}{
-		assert(size <= max_size());
+	// Construct an object pool (requires size <= max_size())
+	explicit object_pool(size_type size)
+	:initial_capacity_{size}, capacity_{size}, objects_{size}{
+		if (size > max_size()) throw std::length_error("object_pool: constructor size too large");
 		clear();
 	}
-	~object_pool() final override = default;
+
+	~object_pool() final override {
+		for (size_type i = 0; i < num_objects_; i++) {
+			destroy(objects_[i]);
+		}
+	}
+
 	object_pool(const object_pool&) = delete;
 	object_pool& operator=(const object_pool&) = delete;
 	
@@ -200,6 +206,11 @@ public:
 		freelist_enque_ = mask_index(id);
 	}
 
+	// TODO:
+	void pop_back() {
+
+	}
+
 	void clear() final override {
 		for (size_type i = 0; i < num_objects_; i++) {
 			destroy(objects_[i]);
@@ -213,6 +224,15 @@ public:
 		}
 		freelist_deque_ = 0;
 		freelist_enque_ = static_cast<uint16_t>(capacity_ - 1);
+
+		// Remove excess storages?
+		while (objects_.storage_count() > 1){
+			const auto& storage = objects_.storage(objects_.storage_count() - 1);
+			auto count = storage.count;
+			objects_.deallocate();
+			capacity_ -= count;
+		}
+		assert(capacity_ == initial_capacity_);
 	}
 
 	iterator begin() { 
@@ -236,6 +256,10 @@ public:
 	}
 
 	const_iterator end() const { return const_iterator(*this, size()); }
+
+	const_iterator cbegin() const { return begin(); }
+
+	const_iterator cend() const { return end(); }
 	
 	// Debugging
 	void check_internal_consistency() const {
@@ -262,7 +286,7 @@ public:
 
 protected:
 	static const size_type max_size_ = 0xffff;
-	size_type objects_grow_size_ = 0;
+	size_type initial_capacity_ = 0;
 	size_type capacity_ = 0;
 	size_type num_objects_ = 0;
 	uint16_t freelist_enque_ = 0;
@@ -298,13 +322,13 @@ protected:
 		}
 
 		if (num_objects_ >= capacity_) {
-			size_type new_size = std::min(capacity_ + objects_grow_size_, max_size());
+			size_type new_size = std::min(capacity_ + initial_capacity_, max_size());
 			if (new_size <= max_size()) {
 				int num_new_objects = new_size - capacity_;
 				bool resize_succeeded = false;
 				const int resize_attempts = 8;
 				for (int i = 0; i < resize_attempts && !resize_succeeded; i++) {
-					resize_succeeded = objects_.append_new_storage(num_new_objects);
+					resize_succeeded = objects_.allocate(num_new_objects);
 					if (!resize_succeeded) num_new_objects /= 2;
 				}
 				if (!resize_succeeded){
