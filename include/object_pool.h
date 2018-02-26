@@ -430,7 +430,6 @@ bool object_pool_iterator<object_pool>::operator!=(const object_pool_iterator<ob
 template<class object_pool> typename object_pool_iterator<object_pool>::reference object_pool_iterator<object_pool>::operator*() { return db_->data[i_]; }
 template<class object_pool> typename object_pool_iterator<object_pool>::const_reference object_pool_iterator<object_pool>::operator*() const { return db_->data[i_]; }
 
-
 template<class object_pool>
 object_pool_const_iterator<object_pool>::object_pool_const_iterator(const object_pool& array, typename object_pool::size_type ri) : object_pool_(array), storage_pool_(array.objects_), i_(0), di_(0) {
 	for (; di_ < storage_pool_.storage_count(); di_++) {

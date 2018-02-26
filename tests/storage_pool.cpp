@@ -111,7 +111,7 @@ TEST_CASE("storage_pool", "[storage_pool]") {
 
         try {
             storage_pool<int_vector> vec;
-            for (int i=0; i<8; i++) vec.append_storage(1 << (18 + i));
+            for (int i=0; i<10; i++) vec.append_storage(1 << (18 + i));
         }
         catch (const std::bad_array_new_length& e){
             std::cout << "Exception caught: " << e.what() << "\n";

@@ -9,7 +9,7 @@
 #include <cassert>
 #include <limits>
 #include <type_traits>
-#include <vector>
+#include <list>
 
 #if defined(BSP_STORAGE_POOL_LOG_ERROR) || defined(BSP_STORAGE_POOL_ALLOCATION)
 #include <sstream>
@@ -51,8 +51,6 @@ public:
 
 	explicit storage_pool(size_type count):size_(0){
         assert(count > 0);
-        const int initial_capacity = 100;
-		storages_.reserve(initial_capacity);
         append_storage(count);
 	}
 
@@ -97,7 +95,7 @@ public:
 
 	inline size_type storage_count() const { return storages_.size(); }
 
-	const storage_type& storage(size_type i) const { return storages_[i]; }
+	const storage_type& storage(size_type i) const { return *std::next(storages_.begin(), i); }
 
     inline reference operator[](size_type index) { return const_cast<reference>(static_cast<const storage_pool*>(this)->operator[](index)); }
 
@@ -108,12 +106,12 @@ public:
 			}
 		}
 		error("storage_pool: invalid index");
-		return *storages_[0].data;
+		return *(storages_.begin()->data);
 	}
 
 protected:
 	size_type size_ = 0;
-	std::vector<storage_type> storages_;
+	std::list<storage_type> storages_;
 
 protected:
 	inline const size_type size_of_value() { return static_cast<size_type>(sizeof(T)); };
