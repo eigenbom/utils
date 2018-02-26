@@ -35,9 +35,9 @@ public:
 
     class iterator : public std::iterator<std::bidirectional_iterator_tag, T> {
     public:
-        using reference = ring_buffer<T, Capacity>::reference;
-        using const_reference = ring_buffer<T, Capacity>::const_reference;
-        using size_type = ring_buffer<T, Capacity>::size_type;
+        using reference = typename ring_buffer::reference;
+        using const_reference = typename ring_buffer::const_reference;
+        using size_type = typename ring_buffer::size_type;
     
 	public:
         iterator(ring_buffer& ring):ring_(ring), i_(ring.count()){}
@@ -61,8 +61,8 @@ public:
 
     class const_iterator : public std::iterator<std::bidirectional_iterator_tag, T> {
     public:
-        using reference = ring_buffer<T, Capacity>::const_reference;
-        using size_type = ring_buffer<T, Capacity>::size_type;
+        using reference = typename ring_buffer::const_reference;
+        using size_type = typename ring_buffer::size_type;
     
 	public:
         const_iterator(const ring_buffer& ring):ring_(ring), i_(ring.count()){}

@@ -28,8 +28,9 @@ template<int Capacity> class fixed_string {
     static_assert(Capacity > 0, "Capacity <= 0!");
     
 public:
-    using iterator = char*;
-    using const_iterator = const char*;
+	using array_type = std::array<char, Capacity + 1>;
+    using iterator = typename array_type::iterator;
+    using const_iterator = typename array_type::const_iterator;
     using size_type = int;
 
 public:
@@ -110,7 +111,7 @@ protected:
 		throw std::runtime_error(message);
 #endif
 	}
-
+	
     template <int M> friend std::ostream& operator<<(std::ostream& out, const fixed_string<M>& str);
 };
 

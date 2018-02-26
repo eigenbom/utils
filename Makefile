@@ -1,12 +1,12 @@
 
 BIN_DIR = bin
 SOURCE_DIR = tests
-OBJECT_DIR_DEBUG = build
+OBJECT_DIR_DEBUG = obj
 INCLUDE_DIR = include
 
 ifeq ($(OS),Windows_NT)
 	CXX = g++
-	CXXFLAGS := -std=c++11
+	CXXFLAGS := -std=c++11 -g
 	LDFLAGS := 
 else 
 	# OSX

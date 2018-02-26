@@ -634,3 +634,17 @@ TEST_CASE("inlined_vector benchmark", "[inlined_vector]"){
         }
     }
 }
+
+TEST_CASE("inlined_vector move", "[inlined_vector]") {
+    using vector = inlined_vector<int, 2, true>;
+    vector v1 {1, 2, 3, 4, 5};
+    vector v2 {1, 2, 3};
+    CHECK(v1.size() == 5);
+    CHECK(v2.size() == 3);
+    v2 = std::move(v1);
+    CHECK(v1.size() == 0);
+    CHECK(v2.size() == 5);
+    v2 = std::move(v1);
+    CHECK(v1.size() == 0);
+    CHECK(v2.size() == 0);
+}

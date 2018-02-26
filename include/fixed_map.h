@@ -38,13 +38,15 @@ public:
 		bool valid = false;
 	};
 
+	using array_type = std::array<slot, Capacity>;
+
 	using key_type = Key;
 	using mapped_type = T;
 	using value_type = slot;
 	using reference = T&;
 	using const_reference = const T&;
-	using iterator = value_type*;
-	using const_iterator = const value_type*;
+	using iterator = typename array_type::iterator;
+	using const_iterator = typename array_type::const_iterator;
 	using size_type = int;
 
 public:
@@ -104,7 +106,7 @@ public:
 		data_[index].value = value;
 		data_[index].valid = true;
 		size_++;
-		return &data_[index];
+		return std::next(data_.begin(), index);
 	}
 
 	iterator begin() { return data_.begin(); }
@@ -115,7 +117,7 @@ public:
 
 protected:
 	size_type size_ = 0;
-	std::array<value_type, Capacity> data_;
+	array_type data_;
 	T invalid_value_;
 
 protected:

@@ -3,7 +3,10 @@
 
 # Build
 bin/*
-build/*
+obj/*
+build/msvc/utils/Debug/*
+build/msvc/utils/Release/*
+build/msvc/utils/.vs/*
 
 # OS generated files
 .DS_Store
