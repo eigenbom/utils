@@ -365,6 +365,7 @@ public:
 		}
         data_internal_.pop_back();
 		size_--;
+        assert(size_ == data_internal_.size());
 		return begin() + i;
 	}
 
@@ -387,11 +388,13 @@ public:
 				error("inlined_vector::insert invalid iterator");
 				return end();
 			}
-			for (size_type j = size_; j > i; j--) {
+            data_internal_.push_back(std::move(element(size_ - 1)));
+			for (size_type j = size_ - 1; j > i; j--) {
 				element(j) = std::move(element(j - 1));
 			}
 			element(i) = value;
 			size_++;
+            assert(size_ == data_internal_.size());
 			return std::next(begin(), i);
 		}
 	}
@@ -585,6 +588,7 @@ public:
 		else {
 			data_external_.push_back(value);
 			size_++;
+            assert(size_ == data_external_.size());
 		}
     }
 
@@ -600,6 +604,7 @@ public:
 		else {
 			data_external_.push_back(std::forward<U>(value));
 			size_++;
+            assert(size_ == data_external_.size());
 		}
 	}
 
@@ -614,6 +619,7 @@ public:
 		else {
 			data_external_.emplace_back(std::forward<Args>(args)...);
 			size_++;
+            assert(size_ == data_external_.size());
 		}
 	}
 
@@ -626,6 +632,7 @@ public:
                 // TODO: become inlined again if small enough?
                 data_external_.pop_back();
 			    size_--;
+                assert(size_ == data_external_.size());
             }
 		}
 	}
@@ -661,12 +668,15 @@ public:
 			}
             data_internal_.pop_back();
 			size_--;
+            assert(size_ == data_internal_.size());
 			return begin() + i;
 		}
 		else {
 			size_--;
 			auto vit = std::next(data_external_.cbegin(), std::distance(cbegin(), it));
-			return unwrap(data_external_.erase(vit));
+            auto res = unwrap(data_external_.erase(vit));
+            assert(size_ == data_external_.size());
+			return res;
 		}
 	}
 
@@ -690,7 +700,9 @@ public:
 			size_++;
 			// NB: dataVector may not have a T* iterator
 			auto vit = std::next(data_external_.begin(), std::distance(begin(), it));
-			return unwrap(data_external_.insert(vit, value));
+			auto res = unwrap(data_external_.insert(vit, value));
+            assert(size_ == data_external_.size());
+            return res;
 		}
 	}
 
