@@ -286,16 +286,6 @@ public:
 		return { in.id, nv };
 	}
 
-	template <typename U>
-	std::pair<id_type, pointer> construct(U&& value) {
-		index_type& in = new_index();
-		T* nv = new (&objects_[in.index]) T(std::forward<U>(value));
-		if (object_policy::store_id_in_object){
-			object_policy::set_object_id(*nv, in.id);
-		}
-		return { in.id, nv };
-	}
-
 	template<class... Args>
 	std::pair<id_type, pointer> construct(Args&&... args) {
 		index_type& in = new_index();

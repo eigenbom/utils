@@ -229,17 +229,12 @@ TEST_CASE("object_pool (int)", "[object_pool]") {
     object_pool<int> pool {512};
     CHECK(pool.size() == 0);    
 	
-    SECTION("can push back empty"){
+    SECTION("can construct empty"){
         pool.construct();
         CHECK(pool.size() == 1);
     }
 
-    SECTION("can push back rvalue"){
-        pool.construct(42);
-        CHECK(pool.size() == 1);
-    }
-
-    SECTION("can emplace back"){
+    SECTION("can construct rvalue"){
         pool.construct(42);
         CHECK(pool.size() == 1);
     }
@@ -277,19 +272,27 @@ TEST_CASE("object_pool (std::string)", "[object_pool]") {
     object_pool<std::string> pool {512};
     CHECK(pool.size() == 0);
 
-    SECTION("can push back empty"){
+    SECTION("can construct empty"){
         pool.construct();
         CHECK(pool.size() == 1);
     }
 
-    SECTION("can push back rvalue"){
+    SECTION("can construct rvalue"){
         auto res = pool.construct(std::string("Hello"));
         CHECK(pool.size() == 1);
         CHECK(res.first == 0);
         CHECK(*res.second == "Hello");
     }
 
-    SECTION("can emplace back"){
+    SECTION("can construct move"){
+        std::string s {"Hello"};
+        auto res = pool.construct(std::move(s));
+        CHECK(pool.size() == 1);
+        CHECK(res.first == 0);
+        CHECK(*res.second == "Hello");
+    }
+
+    SECTION("can construct args"){
         pool.construct("Hello");
         CHECK(pool.size() == 1);
     }    
@@ -299,23 +302,23 @@ TEST_CASE("object_pool (hero)", "[object_pool]") {
     object_pool<hero> pool {512};
     CHECK(pool.size() == 0);
 
-    SECTION("can push back empty"){
+    SECTION("can construct empty"){
         pool.construct();
         CHECK(pool.size() == 1);
     }
 
-    SECTION("can push back copy"){
+    SECTION("can construct copy"){
         hero batman {"batman", 5, 3};
         pool.construct(batman);
         CHECK(pool.size() == 1);
     }
 
-    SECTION("can push back rvalue"){
+    SECTION("can construct rvalue"){
         pool.construct({"spiderman", 6, 3});
         CHECK(pool.size() == 1);
     }
 
-    SECTION("can emplace back"){
+    SECTION("can construct back"){
         pool.construct("flash", 3, 4);
         CHECK(pool.size() == 1);
     }
