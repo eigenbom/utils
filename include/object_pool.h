@@ -1,5 +1,7 @@
 // #define BSP_OBJECT_POOL_LOG_ERROR(message) to log errors
-// #define BSP_OBJECT_POOL_VALID
+// To customise the behaviour of the object pool
+// supply an object pool policy as a template parameter.
+// See bsp::detail::default_object_pool_policy for the format.
 
 #ifndef BSP_OBJECT_POOL_H
 #define BSP_OBJECT_POOL_H
@@ -72,17 +74,16 @@ private:
 // Personal note: my object_is_valid() will be something like:
 // value.id!=InvalidId && value.enabled() && !value.toBeRemoved()
 
-template <typename T>
-struct object_is_valid {
-	static bool get(const T&) { return true; }
-};
-
-template <typename T, typename ID>
-struct object_id {
-	static bool has() { return false; }
-	static ID get(const T&) { return 0; }
-	static void set(T&, const ID&) { }
-};
+namespace detail {
+	template <typename T, typename ID>
+	struct default_object_pool_policy {
+		static const bool store_id_in_object = false;
+		static const bool shrink_after_clear = false;
+		static bool is_object_iterable(const T&){ return true; }
+		static void set_object_id(T&, const ID&){}
+		static ID get_object_id(const T&){return 0;}
+	};
+}
 
 class object_pool_base {
 public:
@@ -96,26 +97,17 @@ public:
 // Customisation:
 // - TODO
 // Reference: Code is heavily inspired by Bitsquid.
-template<typename T, typename ID = uint32_t> class object_pool : public object_pool_base {
+template<typename T, typename ID = uint32_t, class ObjectPolicy = detail::default_object_pool_policy<T, ID>> class object_pool : public object_pool_base {
 public:
 	using id_type = ID;
 	using value_type = T;
 	using reference = T&;
 	using const_reference = const T&;
 	using pointer = T*;
-	using size_type = int;	
-
+	using size_type = int;
 	using iterator = detail::object_pool_iterator<object_pool>;
 	using const_iterator = detail::object_pool_const_iterator<object_pool>;
-
-	struct construct_result {
-		id_type id;
-		value_type* value;
-
-		operator id_type() const {
-			return id;
-		}
-	};
+	using object_policy = ObjectPolicy;
 
 public:
 	// Construct an object pool (requires size <= max_size())
@@ -137,8 +129,8 @@ public:
 	std::pair<id_type, pointer> construct(const T& value = T()) {
 		index_type& in = new_index();
 		T* nv = new (&objects_[in.index]) T(value);
-		if (object_id<T, ID>::has()){
-			object_id<T, ID>::set(*nv, in.id);
+		if (object_policy::store_id_in_object){
+			object_policy::set_object_id(*nv, in.id);
 		}
 		return { in.id, nv };
 	}
@@ -147,8 +139,8 @@ public:
 	std::pair<id_type, pointer> construct(U&& value) {
 		index_type& in = new_index();
 		T* nv = new (&objects_[in.index]) T(std::forward<U>(value));
-		if (object_id<T, ID>::has()){
-			object_id<T, ID>::set(*nv, in.id);
+		if (object_policy::store_id_in_object){
+			object_policy::set_object_id(*nv, in.id);
 		}
 		return { in.id, nv };
 	}
@@ -157,8 +149,8 @@ public:
 	std::pair<id_type, pointer> construct(Args&&... args) {
 		index_type& in = new_index();
 		T* nv = new (&objects_[in.index]) T(std::forward<Args>(args)...);
-		if (object_id<T, ID>::has()){
-			object_id<T, ID>::set(*nv, in.id);
+		if (object_policy::store_id_in_object){
+			object_policy::set_object_id(*nv, in.id);
 		}
 		return { in.id, nv };
 	}
@@ -200,8 +192,8 @@ public:
 		in.id = id_type { static_cast<uint32_t>(id) + id_increment };
 
 		T& target = objects_[in.index];
-		if (object_id<T, ID>::has()){
-			ID target_id = object_id<T, ID>::get(target);
+		if (object_policy::store_id_in_object){
+			ID target_id = object_policy::get_object_id(target);
 			assert(target_id == id);
 		}
 		destroy(target);
@@ -235,20 +227,21 @@ public:
 		freelist_deque_ = 0;
 		freelist_enque_ = static_cast<uint16_t>(capacity_ - 1);
 
-		// Remove excess storages?
-		while (objects_.storage_count() > 1){
-			const auto& storage = objects_.storage(objects_.storage_count() - 1);
-			auto count = storage.count;
-			objects_.deallocate();
-			capacity_ -= count;
+		if (object_policy::shrink_after_clear){
+			while (objects_.storage_count() > 1){
+				const auto& storage = objects_.storage(objects_.storage_count() - 1);
+				auto count = storage.count;
+				objects_.deallocate();
+				capacity_ -= count;
+			}
+			assert(capacity_ == initial_capacity_);
 		}
-		assert(capacity_ == initial_capacity_);
 	}
 
 	iterator begin() { 
 		auto it = iterator(*this, 0);
 		auto end_ = end();
-		while (!object_is_valid<T>::get(*it) && it != end_){
+		while (!object_policy::is_object_iterable(*it) && it != end_){
 			++it;
 		}
 		return it;
@@ -259,7 +252,7 @@ public:
 	const_iterator begin() const { 
 		auto it = const_iterator(*this, 0);
 		auto end_ = end();
-		while (!object_is_valid<T>::get(*it) && it != end_){
+		while (!object_policy::is_object_iterable(*it) && it != end_){
 			++it;
 		}
 		return it;	
@@ -364,15 +357,14 @@ protected:
 		object.~T();
 	}
 
-	// TODO: select best implementation
 	void move_back_into(T& target, index_type& index_){
 		new (&target) T(std::move(objects_[num_objects_ - 1]));
-		// TODO: check we need to destroy here
+		// TODO: double check we need to destroy here (valgrind?)
 		destroy(objects_[num_objects_ - 1]);
 
 		// Adjust index
-		if (object_id<T, ID>::has()){
-			index(object_id<T, ID>::get(target)).index = index_.index;
+		if (object_policy::store_id_in_object){
+			index(object_policy::get_object_id(target)).index = index_.index;
 		}
 		else {
 			for (size_type i = 0; i < max_size(); ++i){
@@ -393,14 +385,14 @@ protected:
 	template<typename OP> friend class detail::object_pool_iterator;
 	template<typename OP> friend class detail::object_pool_const_iterator;
 
-	template<typename T_, typename ID_>
-	friend std::ostream& operator<<(std::ostream&, const object_pool<T_, ID_>&);
+	template<typename T_, typename ID_, typename Policy_>
+	friend std::ostream& operator<<(std::ostream&, const object_pool<T_, ID_, Policy_>&);
 };
   
-template <typename T, typename ID> const typename object_pool<T, ID>::size_type object_pool<T, ID>::max_size_;
+template <typename T, typename ID, typename Policy> const typename object_pool<T, ID, Policy>::size_type object_pool<T, ID, Policy>::max_size_;
 
-template<typename T, typename ID>
-std::ostream& operator<<(std::ostream& out, const object_pool<T, ID>& pool){
+template<typename T, typename ID, typename Policy>
+std::ostream& operator<<(std::ostream& out, const object_pool<T, ID, Policy>& pool){
 	out << "object_pool [";
 	auto it = pool.begin();
 	auto end = pool.end();
@@ -449,7 +441,7 @@ object_pool_iterator<object_pool>& object_pool_iterator<object_pool>::operator++
 			else db_ = &storage_pool_.storage(di_);
 		}
 		const auto& value = db_->data[i_];
-		if (object_is_valid<typename object_pool::value_type>::get(value)) break;
+		if (object_pool::object_policy::is_object_iterable(value)) break;
 	}
 	return *this;
 }
@@ -491,7 +483,7 @@ object_pool_const_iterator<object_pool>& object_pool_const_iterator<object_pool>
 			else db_ = &storage_pool_.storage(di_);
 		}
 		const auto& value = db_->data[i_];
-		if (object_is_valid<typename object_pool::value_type>::get(value)) break;
+		if (object_pool::object_policy::is_object_iterable(value)) break;
 	}
 	return *this;
 }

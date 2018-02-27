@@ -196,13 +196,13 @@ struct hero {
     hero(const char* name, int hp, int mp):name{name}, hp{hp}, mp{mp}{}
 };
 
-namespace bsp {
-    template <> struct object_is_valid<hero> {
-        static bool get(const hero& value) {
-            return value.hp != 0;
-        }
-    };
-}
+struct hero_policy {
+    static const bool store_id_in_object = false;
+	static const bool shrink_after_clear = false;
+	static bool is_object_iterable(const hero& value){ return value.hp != 0; }
+	static void set_object_id(hero&, const uint32_t&){}
+	static uint32_t get_object_id(const hero&){return 0;}
+};
 
 std::ostream& operator<<(std::ostream& out, const hero& h){
     return out << "hero {name: \"" << h.name << "\", hp: " << h.hp << ", mp: " << h.mp << "}";
@@ -315,7 +315,7 @@ TEST_CASE("object_pool (hero)", "[object_pool]") {
 }
 
 TEST_CASE("object_pool object_is_valid (hero)", "[object_pool]") {
-    object_pool<hero> heroes {32};
+    object_pool<hero, uint32_t, hero_policy> heroes {32};
     CHECK(heroes.size() == 0);
 
     heroes.construct("batman", 5, 3);
@@ -391,7 +391,6 @@ TEST_CASE("object_pool operator<<", "[object_pool]") {
         std::cout << heroes << "\n";
     }
 }
-
 struct custom_id {
     uint32_t id = 0;
     explicit custom_id(uint32_t id = 0): id(id){}
@@ -413,24 +412,16 @@ struct quote {
     quote(std::string text):text{text}{}
 };
 
-namespace bsp {
-    template <> 
-    struct object_is_valid<quote> {
-        static bool get(const quote& value) {
-            return value.id != 0;
-        }
-    };
-
-    template <> 
-    struct object_id<quote, uint32_t> {
-        static bool has() { return true; }
-        static uint32_t get(const quote& value) { return value.id; }
-        static void set(quote& value, const uint32_t& id){ value.id = id; }
-    };
-}
+struct quote_policy {
+    static const bool store_id_in_object = true;
+	static const bool shrink_after_clear = true;
+	static bool is_object_iterable(const quote& value){ return value.id != 0; }
+	static void set_object_id(quote& value, const uint32_t& id){ value.id = id; }
+	static uint32_t get_object_id(const quote& value) { return value.id; }
+};
 
 TEST_CASE("object_pool (object with id)", "[object_pool]") {
-    object_pool<quote> pool {512};
+    object_pool<quote, uint32_t, quote_policy> pool {512};
     // This system has id==0 as invalid, so we make an invalid quote first
     pool.construct();
     CHECK(std::distance(pool.begin(), pool.end()) == 0);
