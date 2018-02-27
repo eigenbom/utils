@@ -102,7 +102,8 @@ public:
 	using value_type = T;
 	using reference = T&;
 	using const_reference = const T&;
-	using size_type = int;
+	using pointer = T*;
+	using size_type = int;	
 
 	using iterator = detail::object_pool_iterator<object_pool>;
 	using const_iterator = detail::object_pool_const_iterator<object_pool>;
@@ -133,7 +134,7 @@ public:
 	object_pool(const object_pool&) = delete;
 	object_pool& operator=(const object_pool&) = delete;
 	
-	construct_result construct(const T& value = T()) {
+	std::pair<id_type, pointer> construct(const T& value = T()) {
 		index_type& in = new_index();
 		T* nv = new (&objects_[in.index]) T(value);
 		if (object_id<T, ID>::has()){
@@ -143,7 +144,7 @@ public:
 	}
 
 	template <typename U>
-	construct_result construct(U&& value) {
+	std::pair<id_type, pointer> construct(U&& value) {
 		index_type& in = new_index();
 		T* nv = new (&objects_[in.index]) T(std::forward<U>(value));
 		if (object_id<T, ID>::has()){
@@ -153,7 +154,7 @@ public:
 	}
 
 	template<class... Args>
-	construct_result construct(Args&&... args) {
+	std::pair<id_type, pointer> construct(Args&&... args) {
 		index_type& in = new_index();
 		T* nv = new (&objects_[in.index]) T(std::forward<Args>(args)...);
 		if (object_id<T, ID>::has()){

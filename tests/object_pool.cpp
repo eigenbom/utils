@@ -238,10 +238,10 @@ TEST_CASE("object_pool (int)", "[object_pool]") {
     }
 
     SECTION("id starts at 0 and increments"){
-        auto id0 = pool.construct();
-        auto id1 = pool.construct();
-        auto id2 = pool.construct();
-        auto id3 = pool.construct();
+        auto id0 = pool.construct().first;
+        auto id1 = pool.construct().first;
+        auto id2 = pool.construct().first;
+        auto id3 = pool.construct().first;
         CHECK(id0 == 0);
         CHECK(id1 == 1);
         CHECK(id2 == 2);
@@ -251,7 +251,7 @@ TEST_CASE("object_pool (int)", "[object_pool]") {
     SECTION("can remove"){
         uint32_t ids[10];
         for (int i=0; i<10; i++){
-            ids[i] = pool.construct((int) std::pow(2, i));
+            ids[i] = pool.construct((int) std::pow(2, i)).first;
         }
         CHECK(pool.size() == 10);
         HEADER() << "Should print powers of 2 from 0 to 9\n";
@@ -276,8 +276,10 @@ TEST_CASE("object_pool (std::string)", "[object_pool]") {
     }
 
     SECTION("can push back rvalue"){
-        pool.construct(std::string("Hello"));
+        auto res = pool.construct(std::string("Hello"));
         CHECK(pool.size() == 1);
+        CHECK(res.first == 0);
+        CHECK(*res.second == "Hello");
     }
 
     SECTION("can emplace back"){
@@ -398,10 +400,10 @@ struct custom_id {
 
 TEST_CASE("object_pool (hero, custom id)", "[object_pool]") {
     object_pool<hero, custom_id> pool {512};
-    auto id = pool.construct("batman", 5, 3);
-    CHECK((uint32_t) id.id == 0);
-    id = pool.construct("superman", 999, 4);
-    CHECK((uint32_t) id.id == 1);
+    auto id1 = pool.construct("batman", 5, 3);
+    CHECK((uint32_t) id1.first == 0);
+    auto id2 = pool.construct("superman", 999, 4);
+    CHECK((uint32_t) id2.first == 1);
 }
 
 struct quote {
@@ -437,11 +439,11 @@ TEST_CASE("object_pool (object with id)", "[object_pool]") {
     auto id2 = pool.construct("The only true wisdom is in knowing you know nothing.");
     auto id3 = pool.construct("There is only one good, knowledge, and one evil, ignorance.");
 
-    const auto& quote1 = pool[id1];
-    const auto& quote2 = pool[id2];
-    const auto& quote3 = pool[id3];
+    const auto& quote1 = pool[id1.first];
+    const auto& quote2 = pool[id2.first];
+    const auto& quote3 = pool[id3.first];
 
-    CHECK(quote1.id == id1);
-    CHECK(quote2.id == id2);
-    CHECK(quote3.id == id3);
+    CHECK(quote1.id == id1.first);
+    CHECK(quote2.id == id2.first);
+    CHECK(quote3.id == id3.first);
 }
