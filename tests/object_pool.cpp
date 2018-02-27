@@ -14,24 +14,26 @@
 #include <utility>
 #include <vector>
 
-#define BSP_OBJECT_POOL_LOG_ERROR(message) std::cerr << "Error! " << message << "\n";
-
-#include "../include/storage_pool.h"
 #include "../include/object_pool.h"
 #include "catch.hpp"
 #include "container_matcher.h"
 
 using bsp::object_pool;
-using bsp::storage_pool;
+using bsp::detail::storage_pool;
 using Catch::Equals;
 
 static bool s_debug_log_allocations = false;
 
 namespace bsp {
-    // Hooks
+
     template <typename T>
     void log_error(const storage_pool<T>& pool, const char* message){
         std::cerr << "Error: storage_pool<" << type_name<T>::get() << ">:" << message << "\n";
+    }
+
+    template <typename T>
+    void log_error(const object_pool<T>& pool, const char* message){
+        std::cerr << "Error: object_pool<" << type_name<T>::get() << ">:" << message << "\n";
     }
 
     template <typename T>
@@ -169,10 +171,8 @@ TEST_CASE("storage_pool", "[storage_pool]") {
         CHECK(arr.size() == 0);
     }
 
-#ifdef BSP_STORAGE_POOL_LOG_ERROR
-     SECTION("allocation error"){
+    SECTION("allocation error"){
         HEADER() << "Should cause a bad_array_new_length exception or print an allocation error...\n";
-
         try {
             storage_pool<int_vector> vec;
             int shrink_factor = 0;
@@ -184,8 +184,7 @@ TEST_CASE("storage_pool", "[storage_pool]") {
         catch (const std::bad_array_new_length& e){
             std::cout << "Exception caught: " << e.what() << "\n";
         }
-     }
-#endif
+    }
 }
 
 struct hero {
@@ -199,6 +198,14 @@ struct hero {
 struct hero_policy {
     static const bool store_id_in_object = false;
 	static const bool shrink_after_clear = false;
+	static bool is_object_iterable(const hero& value){ return value.hp != 0; }
+	static void set_object_id(hero&, const uint32_t&){}
+	static uint32_t get_object_id(const hero&){return 0;}
+};
+
+struct hero_policy_shrink {
+    static const bool store_id_in_object = false;
+	static const bool shrink_after_clear = true;
 	static bool is_object_iterable(const hero& value){ return value.hp != 0; }
 	static void set_object_id(hero&, const uint32_t&){}
 	static uint32_t get_object_id(const hero&){return 0;}
@@ -331,12 +338,20 @@ TEST_CASE("object_pool object_is_valid (hero)", "[object_pool]") {
 }
 
 TEST_CASE("object_pool (grow and clear)", "[object_pool]") {
-    object_pool<hero> pool {512};
+    object_pool<hero, uint32_t, hero_policy_shrink> pool {512};
     CHECK(pool.capacity() == 512);
     for (int i=0; i<513; ++i) pool.construct("batman", 5, 5);
     CHECK(pool.capacity() == 1024);
     pool.clear();
     CHECK(pool.capacity() == 512);
+}
+
+TEST_CASE("object_pool (grow to max size)", "[object_pool]") {
+    object_pool<int> pool {512};
+    for (int i=0; i<pool.max_size(); ++i) pool.construct();
+    CHECK(pool.size() == pool.max_size());
+    CHECK(pool.capacity() == pool.max_size());
+    CHECK_THROWS_AS(pool.construct(), std::length_error);        
 }
 
 TEST_CASE("object_pool operator<<", "[object_pool]") {
@@ -437,4 +452,35 @@ TEST_CASE("object_pool (object with id)", "[object_pool]") {
     CHECK(quote1.id == id1.first);
     CHECK(quote2.id == id2.first);
     CHECK(quote3.id == id3.first);
+}
+
+
+TEST_CASE("object_pool (internal consistency)", "[object_pool]") {
+    object_pool<int> pool {512};
+    std::default_random_engine engine {0};
+
+    auto random_int = [&engine](int from, int to){
+        return std::uniform_int_distribution<int>{from, to}(engine);
+    };
+    
+    std::list<uint32_t> ids;
+    for (int i=0; i<256; ++i){
+        auto res = pool.construct(random_int(0, 100));
+        ids.push_back(res.first);
+    }
+
+    // Randomly insert and remove things and then check consistency of freelist
+    for (int i=0; i<128; ++i){
+        if (random_int(0, 1) == 0){
+            auto res = pool.construct(random_int(0, 100));
+            ids.push_back(res.first);
+        }
+        else {
+            auto it = std::next(ids.begin(), random_int(0, ids.size()-1));
+            pool.remove(*it);
+            ids.erase(it);
+        }
+    }
+
+    pool.debug_check_internal_consistency();
 }
