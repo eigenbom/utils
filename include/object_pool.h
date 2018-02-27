@@ -107,6 +107,15 @@ public:
 	using iterator = detail::object_pool_iterator<object_pool>;
 	using const_iterator = detail::object_pool_const_iterator<object_pool>;
 
+	struct construct_result {
+		id_type id;
+		value_type* value;
+
+		operator id_type() const {
+			return id;
+		}
+	};
+
 public:
 	// Construct an object pool (requires size <= max_size())
 	explicit object_pool(size_type size)
@@ -124,33 +133,33 @@ public:
 	object_pool(const object_pool&) = delete;
 	object_pool& operator=(const object_pool&) = delete;
 	
-	id_type push_back(const T& value = T()) {
+	construct_result construct(const T& value = T()) {
 		index_type& in = new_index();
 		T* nv = new (&objects_[in.index]) T(value);
 		if (object_id<T, ID>::has()){
 			object_id<T, ID>::set(*nv, in.id);
 		}
-		return in.id;
+		return { in.id, nv };
 	}
 
 	template <typename U>
-	id_type push_back(U&& value) {
+	construct_result construct(U&& value) {
 		index_type& in = new_index();
 		T* nv = new (&objects_[in.index]) T(std::forward<U>(value));
 		if (object_id<T, ID>::has()){
 			object_id<T, ID>::set(*nv, in.id);
 		}
-		return in.id;
+		return { in.id, nv };
 	}
 
-	template<class... Args> 
-	id_type emplace_back(Args&&... args) {
+	template<class... Args>
+	construct_result construct(Args&&... args) {
 		index_type& in = new_index();
 		T* nv = new (&objects_[in.index]) T(std::forward<Args>(args)...);
 		if (object_id<T, ID>::has()){
 			object_id<T, ID>::set(*nv, in.id);
 		}
-		return in.id;
+		return { in.id, nv };
 	}
 
 	size_type count(id_type id) const {

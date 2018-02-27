@@ -223,25 +223,25 @@ TEST_CASE("object_pool (int)", "[object_pool]") {
     CHECK(pool.size() == 0);    
 	
     SECTION("can push back empty"){
-        pool.push_back();
+        pool.construct();
         CHECK(pool.size() == 1);
     }
 
     SECTION("can push back rvalue"){
-        pool.push_back(42);
+        pool.construct(42);
         CHECK(pool.size() == 1);
     }
 
     SECTION("can emplace back"){
-        pool.emplace_back(42);
+        pool.construct(42);
         CHECK(pool.size() == 1);
     }
 
     SECTION("id starts at 0 and increments"){
-        auto id0 = pool.push_back();
-        auto id1 = pool.push_back();
-        auto id2 = pool.push_back();
-        auto id3 = pool.push_back();
+        auto id0 = pool.construct();
+        auto id1 = pool.construct();
+        auto id2 = pool.construct();
+        auto id3 = pool.construct();
         CHECK(id0 == 0);
         CHECK(id1 == 1);
         CHECK(id2 == 2);
@@ -251,7 +251,7 @@ TEST_CASE("object_pool (int)", "[object_pool]") {
     SECTION("can remove"){
         uint32_t ids[10];
         for (int i=0; i<10; i++){
-            ids[i] = pool.push_back((int) std::pow(2, i));
+            ids[i] = pool.construct((int) std::pow(2, i));
         }
         CHECK(pool.size() == 10);
         HEADER() << "Should print powers of 2 from 0 to 9\n";
@@ -271,17 +271,17 @@ TEST_CASE("object_pool (std::string)", "[object_pool]") {
     CHECK(pool.size() == 0);
 
     SECTION("can push back empty"){
-        pool.push_back();
+        pool.construct();
         CHECK(pool.size() == 1);
     }
 
     SECTION("can push back rvalue"){
-        pool.push_back(std::string("Hello"));
+        pool.construct(std::string("Hello"));
         CHECK(pool.size() == 1);
     }
 
     SECTION("can emplace back"){
-        pool.emplace_back("Hello");
+        pool.construct("Hello");
         CHECK(pool.size() == 1);
     }    
 }
@@ -291,23 +291,23 @@ TEST_CASE("object_pool (hero)", "[object_pool]") {
     CHECK(pool.size() == 0);
 
     SECTION("can push back empty"){
-        pool.push_back();
+        pool.construct();
         CHECK(pool.size() == 1);
     }
 
     SECTION("can push back copy"){
         hero batman {"batman", 5, 3};
-        pool.push_back(batman);
+        pool.construct(batman);
         CHECK(pool.size() == 1);
     }
 
     SECTION("can push back rvalue"){
-        pool.push_back({"spiderman", 6, 3});
+        pool.construct({"spiderman", 6, 3});
         CHECK(pool.size() == 1);
     }
 
     SECTION("can emplace back"){
-        pool.emplace_back("flash", 3, 4);
+        pool.construct("flash", 3, 4);
         CHECK(pool.size() == 1);
     }
 }
@@ -316,10 +316,10 @@ TEST_CASE("object_pool object_is_valid (hero)", "[object_pool]") {
     object_pool<hero> heroes {32};
     CHECK(heroes.size() == 0);
 
-    heroes.emplace_back("batman", 5, 3);
-    heroes.emplace_back("superman", 0, 2);
-    heroes.emplace_back("spiderman", 6, 3);
-    heroes.emplace_back("flash", 3, 4);
+    heroes.construct("batman", 5, 3);
+    heroes.construct("superman", 0, 2);
+    heroes.construct("spiderman", 6, 3);
+    heroes.construct("flash", 3, 4);
 
     int num_iters = 0;
     for (auto it = heroes.begin(); it != heroes.end(); ++it){
@@ -331,7 +331,7 @@ TEST_CASE("object_pool object_is_valid (hero)", "[object_pool]") {
 TEST_CASE("object_pool (grow and clear)", "[object_pool]") {
     object_pool<hero> pool {512};
     CHECK(pool.capacity() == 512);
-    for (int i=0; i<513; ++i) pool.emplace_back("batman", 5, 5);
+    for (int i=0; i<513; ++i) pool.construct("batman", 5, 5);
     CHECK(pool.capacity() == 1024);
     pool.clear();
     CHECK(pool.capacity() == 512);
@@ -343,49 +343,49 @@ TEST_CASE("object_pool operator<<", "[object_pool]") {
     SECTION("all valid"){
         HEADER() << "Should print 3 heroes...\n";
         object_pool<hero> heroes {64};
-        heroes.emplace_back("batman", 5, 3);
-        heroes.emplace_back("spiderman", 6, 3);
-        heroes.emplace_back("flash", 3, 4);
+        heroes.construct("batman", 5, 3);
+        heroes.construct("spiderman", 6, 3);
+        heroes.construct("flash", 3, 4);
         std::cout << heroes << "\n";
     }
 
     SECTION("start invalid"){
         HEADER() << "Should print 3 heroes...\n";
         object_pool<hero> heroes {64};
-        heroes.emplace_back("superman", 0, 3);
-        heroes.emplace_back("batman", 5, 3);
-        heroes.emplace_back("spiderman", 6, 3);
-        heroes.emplace_back("flash", 3, 4);
+        heroes.construct("superman", 0, 3);
+        heroes.construct("batman", 5, 3);
+        heroes.construct("spiderman", 6, 3);
+        heroes.construct("flash", 3, 4);
         std::cout << heroes << "\n";
     }
 
     SECTION("middle invalid"){
         HEADER() << "Should print 3 heroes...\n";
         object_pool<hero> heroes {64};
-        heroes.emplace_back("batman", 5, 3);
-        heroes.emplace_back("superman", 0, 3);
-        heroes.emplace_back("spiderman", 6, 3);
-        heroes.emplace_back("flash", 3, 4);
+        heroes.construct("batman", 5, 3);
+        heroes.construct("superman", 0, 3);
+        heroes.construct("spiderman", 6, 3);
+        heroes.construct("flash", 3, 4);
         std::cout << heroes << "\n";
     }
 
     SECTION("end invalid"){
         HEADER() << "Should print 3 heroes...\n";
         object_pool<hero> heroes {64};
-        heroes.emplace_back("batman", 5, 3);
-        heroes.emplace_back("spiderman", 6, 3);
-        heroes.emplace_back("flash", 3, 4);
-        heroes.emplace_back("superman", 0, 3);
+        heroes.construct("batman", 5, 3);
+        heroes.construct("spiderman", 6, 3);
+        heroes.construct("flash", 3, 4);
+        heroes.construct("superman", 0, 3);
         std::cout << heroes << "\n";
     }
 
     SECTION("all invalid"){
         HEADER() << "Should print 0 heroes...\n";
         object_pool<hero> heroes {64};
-        heroes.emplace_back("batman", 0, 3);
-        heroes.emplace_back("spiderman", 0, 3);
-        heroes.emplace_back("flash", 0, 4);
-        heroes.emplace_back("superman", 0, 3);
+        heroes.construct("batman", 0, 3);
+        heroes.construct("spiderman", 0, 3);
+        heroes.construct("flash", 0, 4);
+        heroes.construct("superman", 0, 3);
         std::cout << heroes << "\n";
     }
 }
@@ -398,10 +398,10 @@ struct custom_id {
 
 TEST_CASE("object_pool (hero, custom id)", "[object_pool]") {
     object_pool<hero, custom_id> pool {512};
-    auto id = pool.emplace_back("batman", 5, 3);
-    CHECK((uint32_t) id == 0);
-    id = pool.emplace_back("superman", 999, 4);
-    CHECK((uint32_t) id == 1);
+    auto id = pool.construct("batman", 5, 3);
+    CHECK((uint32_t) id.id == 0);
+    id = pool.construct("superman", 999, 4);
+    CHECK((uint32_t) id.id == 1);
 }
 
 struct quote {
@@ -430,12 +430,12 @@ namespace bsp {
 TEST_CASE("object_pool (object with id)", "[object_pool]") {
     object_pool<quote> pool {512};
     // This system has id==0 as invalid, so we make an invalid quote first
-    pool.push_back();
+    pool.construct();
     CHECK(std::distance(pool.begin(), pool.end()) == 0);
 
-    auto id1 = pool.emplace_back("The unexamined life is not worth living.");
-    auto id2 = pool.emplace_back("The only true wisdom is in knowing you know nothing.");
-    auto id3 = pool.emplace_back("There is only one good, knowledge, and one evil, ignorance.");
+    auto id1 = pool.construct("The unexamined life is not worth living.");
+    auto id2 = pool.construct("The only true wisdom is in knowing you know nothing.");
+    auto id3 = pool.construct("There is only one good, knowledge, and one evil, ignorance.");
 
     const auto& quote1 = pool[id1];
     const auto& quote2 = pool[id2];
