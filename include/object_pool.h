@@ -14,6 +14,7 @@
 #include <limits>
 #include <type_traits>
 #include <list>
+#include <memory>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -77,46 +78,33 @@ public:
 	storage_pool& operator=(storage_pool&&) = delete;
 
 	~storage_pool(){
-		if (size() > 0) log_deallocation_internal(size(), bytes());
 		for (auto& s: storages_) destroy(s);
 	}
 
-	bool allocate(size_type size) {
+	void allocate(size_type size) {
 		assert(size > 0);
 
-		auto new_bytes = size_of_value() * size;
-		auto current_bytes = size_of_value() * size_;
-
-		if(current_bytes > std::numeric_limits<size_type>::max() - new_bytes){
-			allocation_error(std::numeric_limits<size_type>::max());
-			return false;
+		size_type offset = size_;
+		size_type new_bytes = size_of_value() * size;
+		size_type current_bytes = size_of_value() * size_;
+		const size_type max_bytes = std::numeric_limits<size_type>::max();
+		if (current_bytes > max_bytes - new_bytes){
+			throw std::length_error("object_pool: current_bytes > max_bytes - new_bytes");
 		}
-
-		auto total_bytes = current_bytes + new_bytes;
-		log_allocation_internal(size_ + size, total_bytes);
-		T* data = reinterpret_cast<T*>(new (std::nothrow) aligned_storage_type[new_bytes]);
-		if (data == nullptr) {
-			allocation_error(total_bytes);
-			return false;
-		}
-		else {
-            auto offset = size_;
-			storages_.emplace_back(new_bytes, size, offset, data);
-			size_ += size;
-			return true;
-		}
+		T* data = reinterpret_cast<T*>(new aligned_storage_type[new_bytes]);
+		assert (data != nullptr);
+		storages_.emplace_back(new_bytes, size, offset, data);
+		size_ += size;
 	}
 	
 	// Deallocates the most recently allocated storage
 	void deallocate(){
 		assert (storages_.size() > 0);
 		auto& back_storage = storages_.back();
-		auto num_bytes = back_storage.bytes;
 		auto count = back_storage.count;
 		size_ -= count;
 		destroy(back_storage);
 		storages_.pop_back();
-		log_deallocation_internal(count, num_bytes);
 	}
 
 	inline size_type size() const { return size_; }
@@ -135,38 +123,20 @@ public:
 				return d.data[index - d.offset];
 			}
 		}
-		error("storage_pool: invalid index");
+		assert(false);
 		return *(storages_.begin()->data);
 	}
+
+	inline size_type size_of_value() const { return static_cast<size_type>(sizeof(T)); };
 
 protected:
 	size_type size_ = 0;
 	std::list<storage_type> storages_;
 
 protected:
-	inline const size_type size_of_value() const { return static_cast<size_type>(sizeof(T)); };
-
 	void destroy(storage_type& s){
 		if (s.data) delete[]reinterpret_cast<aligned_storage_type*>(s.data);
 		s.data = nullptr;		
-	}
-
-	void log_allocation_internal(size_type count, size_type bytes) const {
-		log_allocation(*this, count, bytes);
-	}
-
-	void log_deallocation_internal(size_type count, size_type bytes) const {
-		log_allocation(*this, count, -bytes);
-	}
-
-	void allocation_error(size_type bytes){
-        std::ostringstream oss;
-		oss << "couldn't allocate new memory (attempted " << (bytes / 1024) << "kB)";
-        log_error(*this, oss.str().c_str());
-	}
-
-	void error(const char* message) const {
-		log_error(*this, message);
 	}
 };
 
@@ -265,10 +235,12 @@ public:
 	explicit object_pool(size_type size)
 	:initial_capacity_{size}, capacity_{size}, objects_{size}{
 		if (size > max_size()) throw std::length_error("object_pool: constructor size too large");
+		log_allocation_internal(objects_.size(), objects_.bytes());
 		clear();
 	}
 
 	~object_pool() final override {
+		log_deallocation_internal(objects_.size(), objects_.bytes());
 		for (size_type i = 0; i < num_objects_; i++) {
 			destroy(objects_[i]);
 		}
@@ -340,6 +312,7 @@ public:
 				const auto& storage = objects_.storage(objects_.storage_count() - 1);
 				auto count = storage.count;
 				objects_.deallocate();
+				log_deallocation_internal(count, count * objects_.size_of_value());
 				capacity_ -= count;
 			}
 			assert(capacity_ == initial_capacity_);
@@ -469,15 +442,33 @@ protected:
 			size_type new_size = std::min(capacity_ + initial_capacity_, max_size());
 			if (new_size <= max_size()) {
 				int num_new_objects = new_size - capacity_;
-				bool resize_succeeded = false;
+				bool allocated = false;
+				// TODO: This behaviour could be in policy
 				const int resize_attempts = 8;
-				for (int i = 0; i < resize_attempts && !resize_succeeded; i++) {
-					resize_succeeded = objects_.allocate(num_new_objects);
-					if (!resize_succeeded) num_new_objects /= 2;
+				for (int i = 0; i < resize_attempts && !allocated; i++) {
+					try {
+						objects_.allocate(num_new_objects);
+						allocated = true;
+					}
+					catch (std::bad_array_new_length& e){
+						error(e.what());
+					}
+					catch (std::bad_alloc& e){
+						error(e.what());
+					}
+					catch (std::length_error& e){
+						error(e.what());
+					}
+
+					if (!allocated){
+						allocation_error(num_new_objects * objects_.size_of_value());
+						num_new_objects = std::max(1, num_new_objects / 2);
+					}
 				}
-				if (!resize_succeeded){
+				if (!allocated){
 					throw std::length_error("object_pool: cannot append more storage");
 				}
+				log_allocation_internal(num_new_objects, num_new_objects * objects_.size_of_value());
 				capacity_ = objects_.size();
 				indices_[freelist_enque_].next = static_cast<uint16_t>(num_objects_ + 1);
 				freelist_enque_ = static_cast<uint16_t>(capacity_ - 1);
@@ -517,8 +508,22 @@ protected:
 		}
 	}
 
+	void allocation_error(size_type bytes) const {
+        std::ostringstream oss;
+		oss << "couldn't allocate new memory (attempted " << (bytes / 1024) << "kB)";
+        log_error(*this, oss.str().c_str());
+	}
+
 	void error(const char* message) const {
 		log_error(*this, message);
+	}
+
+	void log_allocation_internal(size_type count, size_type bytes) const {
+		log_allocation(*this, count, bytes);
+	}
+
+	void log_deallocation_internal(size_type count, size_type bytes) const {
+		log_allocation(*this, count, -bytes);
 	}
 
 	template<typename OP> friend class detail::object_pool_iterator;

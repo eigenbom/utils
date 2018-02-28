@@ -23,27 +23,23 @@ using bsp::detail::storage_pool;
 using Catch::Equals;
 
 static bool s_debug_log_allocations = false;
+static std::ostringstream s_debug_log_stream;
 
 namespace bsp {
 
-    template <typename T>
-    void log_error(const storage_pool<T>& pool, const char* message){
-        std::cerr << "Error: storage_pool<" << type_name<T>::get() << ">:" << message << "\n";
-    }
-
-    template <typename T>
-    void log_error(const object_pool<T>& pool, const char* message){
+    template <typename T, typename ID, class Policy>
+    void log_error(const object_pool<T, ID, Policy>& pool, const char* message){
         std::cerr << "Error: object_pool<" << type_name<T>::get() << ">:" << message << "\n";
     }
 
-    template <typename T>
-    void log_allocation(const storage_pool<T>& pool, int count, int bytes){
+    template <typename T, typename ID, class Policy>
+    void log_allocation(const object_pool<T, ID, Policy>& pool, int count, int bytes){
         if (s_debug_log_allocations){
             if (bytes>0){
-                std::cout << "Memory: storage_pool<" << type_name<T>::get() << "> allocated " << (bytes / 1024) << "kB (" << count << " objects)\n";
+                s_debug_log_stream << "Memory: storage_pool<" << type_name<T>::get() << "> allocated " << (bytes / 1024) << "kB (" << count << " objects)";
             }
             else {
-                std::cout << "Memory: storage_pool<" << type_name<T>::get() << "> deallocated " << (-bytes / 1024) << "kB (" << -count << " objects)\n";
+                s_debug_log_stream << "Memory: storage_pool<" << type_name<T>::get() << "> deallocated " << (-bytes / 1024) << "kB (" << -count << " objects)";
             }
         }
     }
@@ -57,41 +53,58 @@ namespace bsp {
         }
     };
 
-    template <>
-    struct type_name<std::string> {
-        static std::string get(){
-            return "string";
-        }
-    };
+    template <> struct type_name<std::string> { static std::string get(){ return "string"; }};
+    template <> struct type_name<int>         { static std::string get(){ return "i"; }};
 }
 
-#define HEADER() std::cout << "## "
+struct object_pool_shrink_after_clear {
+    static const bool store_id_in_object = false;
+    static const bool shrink_after_clear = true;
+    static bool is_object_iterable(const int&){ return true; }
+    static void set_object_id(int&, const uint32_t&){}
+    static uint32_t get_object_id(const int&){return 0;}
+};
 
-TEST_CASE("storage_pool print allocations", "[storage_pool]"){
+TEST_CASE("object_pool print allocations", "[object_pool]"){
+    auto clear_debug_stream = [](){ s_debug_log_stream = std::ostringstream(); };
+
     s_debug_log_allocations = true;
+    clear_debug_stream();
 
-    SECTION("default construction"){
-        storage_pool<int> arr {512};
+    SECTION("default construction (int)"){
+        {
+            object_pool<int> pool {512};
+            CHECK_THAT(s_debug_log_stream.str(), Equals("Memory: storage_pool<i> allocated 2kB (512 objects)"));
+            clear_debug_stream();
+        }
+        CHECK_THAT(s_debug_log_stream.str(), Equals("Memory: storage_pool<i> deallocated 2kB (-512 objects)"));
     }
 
-    SECTION("default construction"){
-        // Just testing type_name
-        storage_pool<std::vector<std::string>> arr {512};
+    SECTION("default construction (string)"){
+        {
+            object_pool<std::vector<std::string>> pool {512};
+            CHECK_THAT(s_debug_log_stream.str(), Equals("Memory: storage_pool<vector<string>> allocated 12kB (512 objects)"));
+            clear_debug_stream();
+        }
+        CHECK_THAT(s_debug_log_stream.str(), Equals("Memory: storage_pool<vector<string>> deallocated 12kB (-512 objects)"));
     }
 
-    SECTION("default construction"){
-        storage_pool<int> arr {512};
-        CHECK(arr.storage_count() == 1);
-        arr.allocate(256);
-        CHECK(arr.storage_count() == 2);
-        arr.allocate(128);
-        CHECK(arr.storage_count() == 3);
-        arr.deallocate();
-        CHECK(arr.storage_count() == 2);
-        arr.deallocate();
-        CHECK(arr.storage_count() == 1);
-        arr.deallocate();
-        CHECK(arr.storage_count() == 0);
+    SECTION("expanding storage and shrink after clear"){
+        {
+            object_pool<int, uint32_t, object_pool_shrink_after_clear> pool {512};
+            CHECK(pool.objects().storage_count() == 1);
+            CHECK_THAT(s_debug_log_stream.str(), Equals("Memory: storage_pool<i> allocated 2kB (512 objects)"));
+            clear_debug_stream();
+            for (int i=0; i<513; ++i) pool.construct();
+            CHECK_THAT(s_debug_log_stream.str(), Equals("Memory: storage_pool<i> allocated 2kB (512 objects)"));            
+            CHECK(pool.objects().storage_count() == 2);
+            clear_debug_stream();
+            pool.clear();
+            CHECK_THAT(s_debug_log_stream.str(), Equals("Memory: storage_pool<i> deallocated 2kB (-512 objects)"));            
+            CHECK(pool.objects().storage_count() == 1);
+            clear_debug_stream();
+        }
+        CHECK_THAT(s_debug_log_stream.str(), Equals("Memory: storage_pool<i> deallocated 2kB (-512 objects)"));            
     }
 
     s_debug_log_allocations = false;
@@ -111,8 +124,7 @@ TEST_CASE("storage_pool", "[storage_pool]") {
 
     SECTION("adding storage (ints)"){
         storage_pool<int> arr { 512 };
-        bool success = arr.allocate(256);
-        CHECK(success == true);
+        CHECK_NOTHROW(arr.allocate(256));
         CHECK(arr.storage_count() == 2); 
         CHECK(arr.size() == 512 + 256);
     }
@@ -139,8 +151,7 @@ TEST_CASE("storage_pool", "[storage_pool]") {
 
     SECTION("adding storage (int_vector)"){
         storage_pool<int_vector> arr { 512 };
-        bool success = arr.allocate(256);
-        CHECK(success == true);
+        arr.allocate(256);
         CHECK(arr.storage_count() == 2); 
         CHECK(arr.size() == 512 + 256);
     }
@@ -171,20 +182,32 @@ TEST_CASE("storage_pool", "[storage_pool]") {
         CHECK(arr.size() == 0);
     }
 
-    SECTION("allocation error"){
+    SECTION("allocation error (length_error)"){
+        storage_pool<int> vec;
+        auto max_elements = std::numeric_limits<storage_pool<int>::size_type>::max();
+        int storage_size = 512;
+        for (int i = 0; i < max_elements / storage_size; ++i){
+            vec.allocate(storage_size);
+        }
+        CHECK_THROWS_AS(vec.allocate(1), std::length_error);
+    }
+
+    /*
+
         HEADER() << "Should cause a bad_array_new_length exception or print an allocation error...\n";
         try {
             storage_pool<int_vector> vec;
             int shrink_factor = 0;
             for (int i=0; i<10; i++){
                 bool res = vec.allocate((1 << (18 + i)) >> shrink_factor);
+                if (!res) std::cerr << "Couldn't allocate!\n";
                 if (!res) shrink_factor+=4; // make next allocation smaller
             }
         }
         catch (const std::bad_array_new_length& e){
             std::cout << "Exception caught: " << e.what() << "\n";
         }
-    }
+    }*/
 }
 
 struct hero {
@@ -501,7 +524,7 @@ TEST_CASE("object_pool (internal consistency)", "[object_pool]") {
     pool.debug_check_internal_consistency();
 }
 
-TEST_CASE("object_pool (benchmarks)", "[object_pool]"){
+TEST_CASE("object_pool (benchmarks)", "[!benchmark]"){
     static const int size = 512;
     object_pool<int> pool {512};
 
@@ -509,5 +532,4 @@ TEST_CASE("object_pool (benchmarks)", "[object_pool]"){
         for(int i = 0; i < size; ++i)
             pool.construct(i);
     }
-
 }
