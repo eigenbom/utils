@@ -181,15 +181,43 @@ TEST_CASE("storage_pool", "[storage_pool]") {
         CHECK(arr.storage_count() == 0);
         CHECK(arr.size() == 0);
     }
+}
 
+TEST_CASE("storage_pool allocation_error", "[.allocation_error]") {    
     SECTION("allocation error (length_error)"){
-        storage_pool<int> vec;
-        auto max_elements = std::numeric_limits<storage_pool<int>::size_type>::max();
+        storage_pool<int> pool;
+        auto max_bytes = std::numeric_limits<storage_pool<int>::size_type>::max();
+        auto max_elements = max_bytes / pool.size_of_value();
         int storage_size = 512;
         for (int i = 0; i < max_elements / storage_size; ++i){
-            vec.allocate(storage_size);
+            pool.allocate(storage_size);
         }
-        CHECK_THROWS_AS(vec.allocate(1), std::length_error);
+        CHECK_THROWS_AS(pool.allocate(storage_size), std::length_error);
+    }
+
+    SECTION("allocation error (bad_alloc)"){
+        using chunk = uint32_t [256]; // 1 KB
+        REQUIRE(sizeof(chunk) == 1024);
+        int storage_size = 1024; // 1 MB per storage
+        int num_storages = 1024; // 1 GB
+        
+        // Set this to an upper limit, eventually it'll throw     
+        static const int max_gigabytes = 128; 
+        static const int max_pools = max_gigabytes;
+        try {
+            storage_pool<chunk> pools[max_pools];
+            for (int j = 0; j < max_pools; ++j){
+                auto& pool = pools[j];
+                for (int i = 0; i < num_storages; ++i){
+                    pool.allocate(storage_size);
+                }
+            }
+
+            CHECK(false);
+        }
+        catch (std::bad_alloc&){
+            CHECK(true);
+        }
     }
 
     /*

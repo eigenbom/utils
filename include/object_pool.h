@@ -37,7 +37,7 @@ namespace detail {
 // Manages a list of uninitialised storages for T
 // Typically use is to access storage() directly
 // Note: Direct access through operator[] is O(N = storage.storage_count())
-// TODO: Allow storage to shrink
+// Note: Maximum bytes is 2'147'483'647B
 template<typename T> class storage_pool {
 public:
     using value_type = T;
@@ -87,7 +87,7 @@ public:
 		size_type offset = size_;
 		size_type new_bytes = size_of_value() * size;
 		size_type current_bytes = size_of_value() * size_;
-		const size_type max_bytes = std::numeric_limits<size_type>::max();
+		static const size_type max_bytes = std::numeric_limits<size_type>::max();
 		if (current_bytes > max_bytes - new_bytes){
 			throw std::length_error("object_pool: current_bytes > max_bytes - new_bytes");
 		}
