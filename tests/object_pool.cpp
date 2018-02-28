@@ -256,15 +256,15 @@ TEST_CASE("object_pool (int)", "[object_pool]") {
             ids[i] = pool.construct((int) std::pow(2, i)).first;
         }
         CHECK(pool.size() == 10);
-        HEADER() << "Should print powers of 2 from 0 to 9\n";
-        std::cout << pool << "\n";
+        std::vector<int> powers { 1, 2, 4, 8, 16, 32, 64, 128, 256, 512 };
+        CHECK_THAT(pool, Equals(pool, powers));
 
         for (int i=0; i<10; i+=2){
             pool.remove(i);
         }
         CHECK(pool.size() == 5);
-        HEADER() << "Should print every other power of 2 from 1 to 9\n";
-        std::cout << pool << "\n";
+        std::vector<int> otherPowers { 512, 2, 32, 8, 128 };
+        CHECK_THAT(pool, Equals(pool, otherPowers));        
     }
 }
 
@@ -357,56 +357,70 @@ TEST_CASE("object_pool (grow to max size)", "[object_pool]") {
     CHECK_THROWS_AS(pool.construct(), std::length_error);        
 }
 
-TEST_CASE("object_pool operator<<", "[object_pool]") {
-    HEADER() << "testing object_pool operator<<\n";
-
+TEST_CASE("object_pool ostream", "[object_pool]") {
+    using hero_pool = object_pool<hero, uint32_t, hero_policy>;
     SECTION("all valid"){
-        HEADER() << "Should print 3 heroes...\n";
-        object_pool<hero> heroes {64};
+        hero_pool heroes {64};
         heroes.construct("batman", 5, 3);
         heroes.construct("spiderman", 6, 3);
         heroes.construct("flash", 3, 4);
-        std::cout << heroes << "\n";
+
+        std::ostringstream oss;
+        oss << heroes;
+        auto result = R"(object_pool [hero {name: "batman", hp: 5, mp: 3}, hero {name: "spiderman", hp: 6, mp: 3}, hero {name: "flash", hp: 3, mp: 4}])";
+        CHECK_THAT(oss.str(), Equals(result));
     }
 
     SECTION("start invalid"){
-        HEADER() << "Should print 3 heroes...\n";
-        object_pool<hero> heroes {64};
+        hero_pool heroes {64};
         heroes.construct("superman", 0, 3);
         heroes.construct("batman", 5, 3);
         heroes.construct("spiderman", 6, 3);
         heroes.construct("flash", 3, 4);
-        std::cout << heroes << "\n";
+
+        std::ostringstream oss;
+        oss << heroes;
+        auto result = R"(object_pool [hero {name: "batman", hp: 5, mp: 3}, hero {name: "spiderman", hp: 6, mp: 3}, hero {name: "flash", hp: 3, mp: 4}])";
+        CHECK_THAT(oss.str(), Equals(result));
     }
 
     SECTION("middle invalid"){
-        HEADER() << "Should print 3 heroes...\n";
-        object_pool<hero> heroes {64};
+        hero_pool heroes {64};
         heroes.construct("batman", 5, 3);
         heroes.construct("superman", 0, 3);
         heroes.construct("spiderman", 6, 3);
         heroes.construct("flash", 3, 4);
-        std::cout << heroes << "\n";
+        
+        std::ostringstream oss;
+        oss << heroes;
+        auto result = R"(object_pool [hero {name: "batman", hp: 5, mp: 3}, hero {name: "spiderman", hp: 6, mp: 3}, hero {name: "flash", hp: 3, mp: 4}])";
+        CHECK_THAT(oss.str(), Equals(result));
     }
 
     SECTION("end invalid"){
-        HEADER() << "Should print 3 heroes...\n";
-        object_pool<hero> heroes {64};
+        hero_pool heroes {64};
         heroes.construct("batman", 5, 3);
         heroes.construct("spiderman", 6, 3);
         heroes.construct("flash", 3, 4);
         heroes.construct("superman", 0, 3);
-        std::cout << heroes << "\n";
+
+        std::ostringstream oss;
+        oss << heroes;
+        auto result = R"(object_pool [hero {name: "batman", hp: 5, mp: 3}, hero {name: "spiderman", hp: 6, mp: 3}, hero {name: "flash", hp: 3, mp: 4}])";
+        CHECK_THAT(oss.str(), Equals(result));
     }
 
     SECTION("all invalid"){
-        HEADER() << "Should print 0 heroes...\n";
-        object_pool<hero> heroes {64};
+        hero_pool heroes {64};
         heroes.construct("batman", 0, 3);
         heroes.construct("spiderman", 0, 3);
         heroes.construct("flash", 0, 4);
         heroes.construct("superman", 0, 3);
-        std::cout << heroes << "\n";
+        
+        std::ostringstream oss;
+        oss << heroes;
+        auto result = R"(object_pool [])";
+        CHECK_THAT(oss.str(), Equals(result));
     }
 }
 struct custom_id {
@@ -457,7 +471,6 @@ TEST_CASE("object_pool (object with id)", "[object_pool]") {
     CHECK(quote3.id == id3.first);
 }
 
-
 TEST_CASE("object_pool (internal consistency)", "[object_pool]") {
     object_pool<int> pool {512};
     std::default_random_engine engine {0};
@@ -486,4 +499,15 @@ TEST_CASE("object_pool (internal consistency)", "[object_pool]") {
     }
 
     pool.debug_check_internal_consistency();
+}
+
+TEST_CASE("object_pool (benchmarks)", "[object_pool]"){
+    static const int size = 512;
+    object_pool<int> pool {512};
+
+    BENCHMARK("construct elements") {
+        for(int i = 0; i < size; ++i)
+            pool.construct(i);
+    }
+
 }
