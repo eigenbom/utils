@@ -554,6 +554,33 @@ TEST_CASE("object_pool (internal consistency)", "[object_pool]") {
     pool.debug_check_internal_consistency();
 }
 
+#ifdef DEBUG_MEMORY 
+
+struct CrazyObject {
+	CrazyObject(int i) :data{ new int {i} } {}
+	~CrazyObject() { delete data; }
+	CrazyObject(const CrazyObject& rhs) {
+
+	}
+	CrazyObject(CrazyObject&& rhs){
+		data = new int { *rhs.data };
+		// NB: don't delete old data
+	}
+
+	int* data = nullptr;
+};
+
+TEST_CASE("object_pool (check for mem leak from move_into)") {
+	object_pool<CrazyObject> pool{ 512 };
+	auto id1 = pool.construct(1);
+	auto id2 = pool.construct(2);
+	auto id3 = pool.construct(3);
+	pool.remove(id1.first);
+	CHECK(true);
+}
+
+#endif
+
 TEST_CASE("object_pool (benchmarks)", "[!benchmark]"){
     static const int size = 512;
     object_pool<int> pool {512};

@@ -491,10 +491,7 @@ protected:
 
 	void move_back_into(T& target, index_type& index_){
 		new (&target) T(std::move(objects_[num_objects_ - 1]));
-		// TODO: double check we need to destroy here (valgrind?)
 		destroy(objects_[num_objects_ - 1]);
-
-		// Adjust index
 		if (object_policy::store_id_in_object){
 			index(object_policy::get_object_id(target)).index = index_.index;
 		}

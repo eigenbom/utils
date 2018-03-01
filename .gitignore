@@ -4,7 +4,7 @@
 # Build
 bin/*
 obj/*
-build/msvc/utils/Debug/*
+build/msvc/utils/Debug*/*
 build/msvc/utils/Release/*
 build/msvc/utils/.vs/*
 
