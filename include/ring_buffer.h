@@ -167,7 +167,7 @@ public:
 			return data_[index];
 		}
 		else {
-            throw std::runtime_error("ring_buffer: accessing invalid element");
+            throw std::out_of_range("ring_buffer: accessing invalid element");
 			return data_[0];
 		}
 	}

@@ -9,6 +9,8 @@ Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
 		Debug|x86 = Debug|x86
+		MemCheck|x64 = MemCheck|x64
+		MemCheck|x86 = MemCheck|x86
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
 	EndGlobalSection
@@ -17,6 +19,10 @@ Global
 		{344F9D3B-9A36-4310-95FD-6D40A28EFB71}.Debug|x64.Build.0 = Debug|x64
 		{344F9D3B-9A36-4310-95FD-6D40A28EFB71}.Debug|x86.ActiveCfg = Debug|Win32
 		{344F9D3B-9A36-4310-95FD-6D40A28EFB71}.Debug|x86.Build.0 = Debug|Win32
+		{344F9D3B-9A36-4310-95FD-6D40A28EFB71}.MemCheck|x64.ActiveCfg = Debug - Memory Check|x64
+		{344F9D3B-9A36-4310-95FD-6D40A28EFB71}.MemCheck|x64.Build.0 = Debug - Memory Check|x64
+		{344F9D3B-9A36-4310-95FD-6D40A28EFB71}.MemCheck|x86.ActiveCfg = Debug - Memory Check|Win32
+		{344F9D3B-9A36-4310-95FD-6D40A28EFB71}.MemCheck|x86.Build.0 = Debug - Memory Check|Win32
 		{344F9D3B-9A36-4310-95FD-6D40A28EFB71}.Release|x64.ActiveCfg = Release|x64
 		{344F9D3B-9A36-4310-95FD-6D40A28EFB71}.Release|x64.Build.0 = Release|x64
 		{344F9D3B-9A36-4310-95FD-6D40A28EFB71}.Release|x86.ActiveCfg = Release|Win32

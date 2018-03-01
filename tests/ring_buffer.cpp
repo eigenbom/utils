@@ -217,6 +217,24 @@ TEST_CASE("ring_buffer iterator interface", "[ring_buffer]"){
     }
 }
 
+TEST_CASE("ring_buffer errors", "[ring_buffer]") {
+	ring_buffer<int, 8> ring;
+
+	SECTION("empty and out of range") {
+		CHECK_THROWS_AS(ring.at(-1), std::out_of_range);
+		CHECK_THROWS_AS(ring.at(0), std::out_of_range);
+		CHECK_THROWS_AS(ring.at(1), std::out_of_range);
+		CHECK_THROWS_AS(ring.at(8), std::out_of_range);
+	}
+
+	SECTION("full and out of range") {
+		for (int i = 0; i < ring.max_size(); ++i) ring.add(i);
+		CHECK_NOTHROW(ring.at(0));
+		CHECK_THROWS_AS(ring.at(-1), std::out_of_range);
+		CHECK_THROWS_AS(ring.at(8), std::out_of_range);
+	}
+}
+
 TEST_CASE("ring_buffer internals", "[ring_buffer]"){
     SECTION("valid_index 1"){
         ring_buffer<int, 8> ring;

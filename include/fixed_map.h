@@ -1,15 +1,13 @@
-// Customise the behaviour of fixed_map by defining these before including it:
-// #define BSP_FIXED_MAP_THROWS to get runtime_error on overflow
-// #define BSP_FIXED_MAP_LOG_ERROR(message) to log errors
-
 #ifndef BSP_FIXED_MAP_H
 #define BSP_FIXED_MAP_H
 
 #include <array>
+#include <cassert>
 #include <functional>
 #include <iostream>
 #include <iterator>
 #include <ostream>
+#include <stdexcept>
 
 namespace bsp {
 
@@ -90,15 +88,15 @@ public:
 
 	template<typename Key_> iterator insert(const Key_& key, const T& value) {
 		if (size_ >= max_size()) {
-			error("fixed_map: trying to insert too many elements");
-			return begin();
+			throw std::length_error("fixed_map: trying to insert too many elements");
 		}
 		size_type index = hash_to_index(key);
 		size_type oindex = index;
 		while (data_[index].valid) {
 			index = (index + 1) % max_size();
 			if (index == oindex) {
-				error("fixed_map: tried to insert too many elements");
+				// TODO: This should be unreachable?
+				assert(false);
 				return begin();
 			}
 		}
@@ -125,7 +123,7 @@ protected:
 			 typename = typename std::enable_if<detail::is_iterator<Iter>::value>::type>
 	fixed_map(Iter begin_, Iter end_) {
 		auto size = static_cast<size_type>(std::distance(begin_, end_));
-		if (size > max_size()) throw std::runtime_error("fixed_map: too many elements");
+		if (size > max_size()) throw std::length_error("fixed_map: too many elements");
 		for (auto it = begin_; it != end_; ++it) {
 			insert(it->first, it->second);
 		}
@@ -147,15 +145,6 @@ protected:
 		}
 		while (index != start_index);
 		return -1;
-	}
-
-	void error(const char* message) const {
-#ifdef BSP_FIXED_MAP_LOG_ERROR
-		BSP_FIXED_MAP_LOG_ERROR(message);
-#endif
-#ifdef BSP_FIXED_MAP_THROWS
-		throw std::runtime_error(message);
-#endif
 	}
 
 	template<typename Key_, typename T_, int Capacity_, class Hash_>

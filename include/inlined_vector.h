@@ -200,7 +200,7 @@ public:
 	inlined_vector(size_type count, const T& value = T()):data_internal_(std::min(count, max_size()), value){
 		if (count > max_size()) {
 			size_ = max_size();
-			error("inlined_vector(count, value) got too many elements");
+			length_error("inlined_vector(count, value) got too many elements");
 		}
 		else {
 			size_ = count;
@@ -247,7 +247,7 @@ public:
     inline void push_back(const T& value) {
         // NB: Need this to support aggregates
         if (size_ >= max_size()) {
-			error("inlined_vector::push_back exceeded Capacity");
+			length_error("inlined_vector::push_back exceeded capacity");
 		}
 		else {
 			data_internal_.push_back(value);
@@ -259,7 +259,7 @@ public:
 	template <typename U>
 	inline void push_back(U&& value) {
 		if (size_ >= max_size()) {
-			error("inlined_vector::push_back exceeded Capacity");
+			length_error("inlined_vector::push_back exceeded capacity");
 		}
 		else {
 			data_internal_.push_back(std::forward<U>(value));
@@ -270,7 +270,7 @@ public:
 
 	template<class... Args> inline void emplace_back(Args&&... args) {
 		if (size_ >= max_size()) {
-			error("inlined_vector::emplace_back exceeded Capacity");
+			length_error("inlined_vector::emplace_back exceeded capacity");
 		}
 		else {
 			data_internal_.emplace_back(std::forward<Args>(args)...);
@@ -353,13 +353,13 @@ public:
 		validate_iterator(it);
 
 		if (it == end() || empty()) {
-			error("inlined_vector::erase it == end or container is empty");
+			out_of_range_error("inlined_vector::erase it == end or container is empty");
 			return end();
 		}
 
 		size_type i = iterator_index(it);
 		if (i == size_) {
-			error("inlined_vector::insert invalid iterator");
+			out_of_range_error("inlined_vector::insert invalid iterator");
 			return end();
 		}
 		for (size_type j = i; j < size_ - 1; j++) {
@@ -375,7 +375,7 @@ public:
 		validate_iterator(it);
 
 		if (full()) {
-			error("inlined_vector::insert exceeded Capacity");
+			length_error("inlined_vector::insert exceeded Capacity");
 			return end();
 		}
 
@@ -387,7 +387,7 @@ public:
 			// Insert at i and push everything back
 			size_type i = iterator_index(it);
 			if (i == size_) {
-				error("inlined_vector::insert invalid iterator");
+				out_of_range_error("inlined_vector::insert invalid iterator");
 				return end();
 			}
             data_internal_.push_back(std::move(element(size_ - 1)));
@@ -418,7 +418,7 @@ protected:
 	template<typename Iter, typename = typename std::enable_if<detail::is_iterator<Iter>::value>::type> 
 	inlined_vector(Iter begin_, int size) {		
 		if (size > max_size()) {
-			error("inlined_vector() too many elements");
+			length_error("inlined_vector() too many elements");
 			size_ = max_size();
 		}
 		else {
@@ -454,18 +454,28 @@ protected:
 	inline void validate_iterator(const_iterator it) {
 #ifndef NDEBUG
 		if (it < begin() || it > end()) {
-			error("inlined_vector::validate_iterator invalid iterator");
+			out_of_range_error("inlined_vector::validate_iterator invalid iterator");
 		}
 #endif
 	}
 
-	void error(const char* message) const {
+	void length_error(const char* message) const {
 #ifdef BSP_INLINED_VECTOR_LOG_ERROR
 		BSP_INLINED_VECTOR_LOG_ERROR(message);
 #endif
 
 #ifdef BSP_INLINED_VECTOR_THROWS
-		throw std::runtime_error(message);
+		throw std::length_error(message);
+#endif
+	}
+
+	void out_of_range_error(const char* message) const {
+#ifdef BSP_INLINED_VECTOR_LOG_ERROR
+		BSP_INLINED_VECTOR_LOG_ERROR(message);
+#endif
+
+#ifdef BSP_INLINED_VECTOR_THROWS
+		throw std::out_of_range(message);
 #endif
 	}
 
@@ -491,7 +501,8 @@ public:
 	using base_t::element;
 	using base_t::empty;
 	using base_t::end;
-	using base_t::error;
+	using base_t::out_of_range_error;
+	using base_t::length_error;
 	using base_t::max_size;
 	using base_t::rbegin;
 	using base_t::data_internal_;
@@ -656,13 +667,13 @@ public:
 		base_t::validate_iterator(it);
 
 		if (it == end() || empty()) {
-			error("inlined_vector::erase it == end or container is empty");
+			out_of_range_error("inlined_vector::erase it == end or container is empty");
 		}
 
 		if (inlined_) {
 			size_type i = base_t::iterator_index(it);
 			if (i == size_) {
-				error("inlined_vector::erase invalid iterator");
+				out_of_range_error("inlined_vector::erase invalid iterator");
 				return end();
 			}
 			for (size_type j = i; j < size_ - 1; j++) {

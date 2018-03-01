@@ -97,27 +97,9 @@ TEST_CASE("fixed_map exceptions", "[fixed_map]") {
     CHECK_THROWS(fixed_map<int, int, 2>(els));
 }
 
-#ifdef BSP_FIXED_MAP_THROWS
-
 TEST_CASE("fixed_map exception in insertion", "[fixed_map]") {
     fixed_map<int, int, 2> map;
     map.insert(0, 0);
     map.insert(1, 1);
-    CHECK_THROWS(map.insert(2, 1));
+    CHECK_THROWS_AS(map.insert(2, 1), std::length_error);
 }
-
-#endif
-
-#ifndef BSP_FIXED_MAP_THROWS
-#ifdef BSP_FIXED_MAP_LOG_ERROR
-
-TEST_CASE("fixed_map error on insertion", "[fixed_map]") {
-    fixed_map<int, int, 2> map;
-    map.insert(0, 0);
-    map.insert(1, 1);
-    std::cout << "Should print an error...\n";
-    map.insert(2, 1);
-}
-
-#endif
-#endif
