@@ -77,6 +77,9 @@
       <SDLCheck>true</SDLCheck>
       <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
+    <Link>
+      <StackReserveSize>8388608</StackReserveSize>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -96,6 +99,7 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <StackReserveSize>8388608</StackReserveSize>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -118,7 +122,6 @@
     <ClCompile Include="..\..\..\tests\inlined_vector.cpp" />
     <ClCompile Include="..\..\..\tests\object_pool.cpp" />
     <ClCompile Include="..\..\..\tests\ring_buffer.cpp" />
-    <ClCompile Include="..\..\..\tests\storage_pool.cpp" />
     <ClCompile Include="..\..\..\tests\tests.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -128,7 +131,6 @@
     <ClInclude Include="..\..\..\include\inlined_vector.h" />
     <ClInclude Include="..\..\..\include\object_pool.h" />
     <ClInclude Include="..\..\..\include\ring_buffer.h" />
-    <ClInclude Include="..\..\..\include\storage_pool.h" />
     <ClInclude Include="..\..\..\tests\catch.hpp" />
     <ClInclude Include="..\..\..\tests\container_matcher.h" />
   </ItemGroup>
