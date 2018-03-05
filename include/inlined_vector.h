@@ -686,7 +686,8 @@ public:
 		}
 		else {
 			size_--;
-			auto vit = std::next(data_external_.cbegin(), std::distance(cbegin(), it));
+			// Note: a bug in gcc 4.8.4 means we have to use a non-const iterator here
+			auto vit = std::next(data_external_.begin(), std::distance(cbegin(), it));
             auto res = unwrap(data_external_.erase(vit));
             assert(size_ == data_external_.size());
 			return res;
