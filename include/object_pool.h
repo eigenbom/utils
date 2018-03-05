@@ -9,6 +9,7 @@
 #include <array>
 #include <algorithm>
 #include <cassert>
+#include <climits>
 #include <cstdint>
 #include <iterator>
 #include <limits>
@@ -19,6 +20,15 @@
 #include <sstream>
 #include <string>
 #include <stdexcept>
+
+#define HAS_BAD_ARRAY_NEW_LENGTH
+
+#if defined(__GNUC__) && !defined(__clang__)
+	#define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
+	#if GCC_VERSION < 40902
+		#undef HAS_BAD_ARRAY_NEW_LENGTH	
+	#endif
+#endif
 
 namespace bsp {
 
@@ -452,9 +462,11 @@ protected:
 						objects_.allocate(num_new_objects);
 						allocated = true;
 					}
+#ifdef HAS_BAD_ARRAY_NEW_LENGTH
 					catch (std::bad_array_new_length& e){
-						error(e.what());
+						error(e.what());						
 					}
+#endif
 					catch (std::bad_alloc& e){
 						error(e.what());
 					}

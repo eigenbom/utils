@@ -221,23 +221,6 @@ TEST_CASE("storage_pool allocation_error", "[.allocation_error]") {
             CHECK(true);
         }
     }
-
-    /*
-
-        HEADER() << "Should cause a bad_array_new_length exception or print an allocation error...\n";
-        try {
-            storage_pool<int_vector> vec;
-            int shrink_factor = 0;
-            for (int i=0; i<10; i++){
-                bool res = vec.allocate((1 << (18 + i)) >> shrink_factor);
-                if (!res) std::cerr << "Couldn't allocate!\n";
-                if (!res) shrink_factor+=4; // make next allocation smaller
-            }
-        }
-        catch (const std::bad_array_new_length& e){
-            std::cout << "Exception caught: " << e.what() << "\n";
-        }
-    }*/
 }
 
 struct hero {
