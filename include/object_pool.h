@@ -278,8 +278,10 @@ public:
 
 		T& target = objects_[in.index];
 		if (object_policy::store_id_in_object){
-			ID target_id = object_policy::get_object_id(target);
-			assert(target_id == id);
+			#ifndef NDEBUG
+				ID target_id = object_policy::get_object_id(target);
+				assert(target_id == id);
+			#endif
 		}
 		destroy(target);
 		if (in.index != num_objects_ - 1) {
