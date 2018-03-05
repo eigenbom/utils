@@ -68,7 +68,7 @@ struct object_pool_shrink_after_clear {
 
 TEST_CASE("object_pool print allocations", "[object_pool]"){
 	// Note: the actual size will differ by platform so we just check the stream is printing something
-    auto clear_debug_stream = [](){ s_debug_log_stream = std::ostringstream(); };
+    auto clear_debug_stream = [](){ s_debug_log_stream.str({}); };
 
     s_debug_log_allocations = true;
     clear_debug_stream();
