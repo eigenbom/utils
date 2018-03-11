@@ -12,7 +12,7 @@
 
 namespace bsp {
 
-namespace detail {
+namespace detail_ring_buffer {
 template<class, class Enable = void> struct is_iterator : std::false_type {};
 template<typename T_>
 struct is_iterator<
@@ -84,8 +84,8 @@ public:
 	using const_reference = const T&;
 	using size_type = int;
 
-    using iterator = detail::ring_buffer_iterator<ring_buffer>;
-    using const_iterator = detail::ring_buffer_const_iterator<ring_buffer>;
+    using iterator = detail_ring_buffer::ring_buffer_iterator<ring_buffer>;
+    using const_iterator = detail_ring_buffer::ring_buffer_const_iterator<ring_buffer>;
     using reverse_iterator = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
@@ -198,7 +198,7 @@ protected:
 	size_type start_ = 0;
 
 protected:
-    template <typename Iter, typename = typename std::enable_if<detail::is_iterator<Iter>::value>::type>
+    template <typename Iter, typename = typename std::enable_if<detail_ring_buffer::is_iterator<Iter>::value>::type>
     ring_buffer(Iter begin, Iter end){
         for (auto it = begin; it != end; ++it) push_back(*it);
     }
