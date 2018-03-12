@@ -215,6 +215,25 @@ TEST_CASE("ring_buffer iterator interface", "[ring_buffer]"){
         CHECK(ring.rbegin() != ring.rend());
         CHECK(std::distance(ring.rbegin(), ring.rend()) == 8);
     }
+
+	SECTION("reverse iterator (overfull)") {
+		ring_buffer<int, 8> ring { 1, 2, 3, 4, 5, 6, 7, 8 };
+		REQUIRE(*ring.begin() == 1);
+		REQUIRE(*std::prev(ring.end()) == 8);
+		REQUIRE(ring.start() == 0);
+		REQUIRE(ring.count() == 8);
+		ring.push_back(9);
+		ring.push_back(10);
+		ring.push_back(11);
+		ring.push_back(12);
+		REQUIRE(ring.start() == 4);
+		REQUIRE(ring.count() == 8);
+		CHECK(*std::prev(ring.end()) == 12);
+		CHECK(*ring.rbegin() == 12);
+		std::vector<int> last_n { ring.rbegin(), std::next(ring.rbegin(), 6) };	
+		std::vector<int> should_be{ 12, 11, 10, 9, 8, 7 };
+		CHECK_THAT(last_n, Equals(should_be));
+	}
 }
 
 TEST_CASE("ring_buffer errors", "[ring_buffer]") {

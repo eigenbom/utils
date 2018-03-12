@@ -31,7 +31,7 @@ public:
     using size_type       = typename ring_buffer::size_type;
 
 public:
-    ring_buffer_iterator(ring_buffer& ring):ring_(ring), i_(ring.count()){}
+    ring_buffer_iterator(ring_buffer& ring):ring_(ring), i_(ring.count()),offset_(ring.start()) {}
     ring_buffer_iterator(ring_buffer& ring, size_type offset):ring_(ring),offset_(offset){}		
     ring_buffer_iterator& operator++(){ i_++; return *this; }
     ring_buffer_iterator operator++(int){ ring_buffer_iterator tmp(*this); ++(*this); return tmp; }
@@ -57,7 +57,7 @@ public:
     using size_type = typename ring_buffer::size_type;
 
 public:
-    ring_buffer_const_iterator(const ring_buffer& ring):ring_(ring), i_(ring.count()){}
+    ring_buffer_const_iterator(const ring_buffer& ring):ring_(ring), i_(ring.count()), offset_(ring.start()) {}
     ring_buffer_const_iterator(const ring_buffer& ring, size_type offset):ring_(ring),offset_(offset){}		
     ring_buffer_const_iterator(const ring_buffer_iterator<ring_buffer>& it):ring_(it.ring_), i_(it.i_), offset_(it.offset_){}        
     ring_buffer_const_iterator& operator++(){ i_++; return *this; }
@@ -172,25 +172,25 @@ public:
 		}
 	}
 
-    iterator begin() { return iterator(*this, 0); }
+    iterator begin() { return iterator(*this, start()); }
 
     iterator end() { return iterator(*this); }
 
-    const_iterator begin() const { return const_iterator(*this, 0); }
+    const_iterator begin() const { return const_iterator(*this, start()); }
 
     const_iterator end() const { return const_iterator(*this); }
 
-    const_iterator cbegin() const { return const_iterator(*this, 0); }
+    const_iterator cbegin() const { return const_iterator(*this, start()); }
 
     const_iterator cend() const { return const_iterator(*this); }
 
     reverse_iterator rbegin() { return std::reverse_iterator<iterator>(end()); }
 
-    reverse_iterator rend() { return std::reverse_iterator<iterator>(iterator(*this, 0)); }
+    reverse_iterator rend() { return std::reverse_iterator<iterator>(begin()); }
 
     const_reverse_iterator rbegin() const { return std::reverse_iterator<const_iterator>(end()); }
 
-    const_reverse_iterator rend() const { return std::reverse_iterator<const_iterator>(const_iterator(*this, 0)); }
+    const_reverse_iterator rend() const { return std::reverse_iterator<const_iterator>(begin()); }
 
 protected:
 	std::array<T, Capacity> data_;
