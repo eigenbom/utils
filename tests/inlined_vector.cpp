@@ -94,6 +94,12 @@ TEST_CASE("inlined_vector pod", "[static_vector]") {
         static_vector<std::string, 8> v4 = v3;
         CHECK(true);
     }
+
+	SECTION("copy to self") {
+		static_vector<int, 8> v1 (4, 42);
+		v1 = v1;
+		CHECK(v1.size() == 4);
+	}
 }
 
 // inlined_vector<int, -1, false> gNegativeSizedVectorWillStaticAssert;

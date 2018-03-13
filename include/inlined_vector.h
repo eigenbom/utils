@@ -57,6 +57,8 @@ namespace detail {
 		}
 
 		static_vector& operator=(const static_vector& other){
+			if (other.data_ == data_) return *this;
+
 			destroy_all();
 			size_ = other.size_;
 			for(size_type i = 0; i < size_; ++i) {
@@ -66,6 +68,8 @@ namespace detail {
 		}
 
 		static_vector& operator=(static_vector&& other){
+			if (other.data_ == data_) return *this;
+
 			destroy_all();
 			size_ = other.size_;
 			for(size_type i = 0; i < size_; ++i) {
@@ -204,7 +208,7 @@ public:
 		}
 		else {
 			size_ = count;
-		}		
+		}
 	}
 
 	template<int Capacity_, bool CanExpand_>
