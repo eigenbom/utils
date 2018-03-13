@@ -85,7 +85,10 @@ TEST_CASE("inlined_vector pod", "[static_vector]") {
     SECTION("copy"){
         std::cout << "Expect: 1 trivial copy and 1 non-trivial copy" << "\n";
         static_vector<int, 8> v1 (4, 42);
+		CHECK(v1.size() == 4);
         static_vector<int, 8> v2 = v1;
+		CHECK(v1.size() == 4);
+		CHECK(v2.size() == 4);
         static_vector<std::string, 8> v3;
         v3.push_back(std::string("Hello"));
         static_vector<std::string, 8> v4 = v3;
@@ -376,6 +379,13 @@ TEST_CASE("inlined_vector construction", "[inlined_vector]"){
         inlined_vector<int, 8, true> v2 { std::move(v1) };
         CHECK_THAT(v2, Equals(v2, res));
     }
+
+	SECTION("move construct") {
+		auto res = { 1, 2, 3, 4, 5 };
+		inlined_vector<int, 2, true> v1{ res };
+		inlined_vector<int, 2, true> v2{ std::move(v1) };
+		CHECK_THAT(v2, Equals(v2, res));
+	}
 
     SECTION("move construct"){
         inlined_vector<MoveOnly, 8, false> v1;

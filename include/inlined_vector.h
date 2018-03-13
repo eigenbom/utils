@@ -210,19 +210,25 @@ public:
 	template<int Capacity_, bool CanExpand_>
 	inlined_vector(const inlined_vector<T, Capacity_, CanExpand_>& other)
 		: inlined_vector(other.begin(), other.size()) {
-        assert(size_ == data_internal_.size());
+        assert_integrity();
+		other.assert_integrity();
     }
 
 	template<int Capacity_, bool CanExpand_>
 	inlined_vector(inlined_vector<T, Capacity_, CanExpand_>&& other)
 		: inlined_vector(other.begin(), other.size()) {
-        assert(size_ == data_internal_.size());
+		assert_integrity();
+		other.assert_integrity();
     }
 
 	template<class Container>
-	inlined_vector(const Container& els) : inlined_vector(els.begin(), els.size()) {}
+	inlined_vector(const Container& els) : inlined_vector(els.begin(), els.size()) {
+		assert_integrity();
+	}
 
-	inlined_vector(std::initializer_list<T> els) : inlined_vector(els.begin(), els.size()) {}
+	inlined_vector(std::initializer_list<T> els) : inlined_vector(els.begin(), els.size()) {
+		assert_integrity();
+	}
 
     virtual ~inlined_vector() = default;
 
@@ -233,7 +239,7 @@ public:
 	inline void clear() { 
         size_ = 0;
         data_internal_.clear();
-        assert(size_ == data_internal_.size());
+		assert_integrity();
     }
 
 	inline size_type size() const { return size_; }
@@ -252,7 +258,7 @@ public:
 		else {
 			data_internal_.push_back(value);
 			size_++;
-            assert(size_ == data_internal_.size());
+			assert_integrity();
 		}
     }
 
@@ -264,7 +270,7 @@ public:
 		else {
 			data_internal_.push_back(std::forward<U>(value));
 			size_++;
-            assert(size_ == data_internal_.size());
+			assert_integrity();
 		}
 	}
 
@@ -275,7 +281,7 @@ public:
 		else {
 			data_internal_.emplace_back(std::forward<Args>(args)...);
 			size_++;
-            assert(size_ == data_internal_.size());
+			assert_integrity();
 		}
 	}
 
@@ -283,19 +289,21 @@ public:
 		for (auto v : other) {
 			push_back(std::move(v));
 		}
+		assert_integrity();
 	}
 
 	void extend(std::initializer_list<T> other) {
 		for (auto v : other) {
 			push_back(std::move(v));
 		}
+		assert_integrity();
 	}
 
 	inline virtual void pop_back() {
 		if (!empty()){
             data_internal_.pop_back();
             size_--;
-            assert(size_ == data_internal_.size());
+			assert_integrity();
         }
 	}
 
@@ -367,7 +375,7 @@ public:
 		}
         data_internal_.pop_back();
 		size_--;
-        assert(size_ == data_internal_.size());
+		assert_integrity();
 		return begin() + i;
 	}
 
@@ -381,6 +389,7 @@ public:
 
 		if (it == end()) {
 			push_back(value);
+			assert_integrity();
 			return std::prev(end(), 1);
 		}
 		else {
@@ -396,7 +405,7 @@ public:
 			}
 			element(i) = value;
 			size_++;
-            assert(size_ == data_internal_.size());
+			assert_integrity();
 			return std::next(begin(), i);
 		}
 	}
@@ -429,12 +438,15 @@ protected:
 		for (auto it = begin_; it != end_; ++it){
 			data_internal_.emplace_back(std::move(*it));
 		}
+
+		assert_integrity();
 	}
 
 	// Helper constructor for sub-class
 	inlined_vector(array_type&& array, int size, bool inlined)
 		: data_internal_(std::move(array)), size_(size) {
-        assert(!inlined || size_ == data_internal_.size());
+		assert(array.size() == 0);
+		assert(!inlined || size_ == data_internal_.size());
     }
 
 	inline reference element(size_type index) { return *std::next(begin(), index); }
@@ -479,6 +491,15 @@ protected:
 #endif
 	}
 
+public:
+#ifndef NDEBUG
+	virtual void assert_integrity() const {
+		assert(size_ == data_internal_.size());
+	}
+#else 
+	void assert_integrity() {}
+#endif 
+
 	template<typename T_, int Capacity_>
 	friend std::ostream& operator<<(std::ostream& out, const inlined_vector<T_, Capacity_, false>& vector);
 };
@@ -521,11 +542,16 @@ public:
 			std::fill_n(data_external_.begin(), count, value);
 			inlined_ = false;
 		}
+
+		assert_integrity();
 	}
 
 	template<int Capacity_, bool CanExpand_>
 	inlined_vector(const inlined_vector<T, Capacity_, CanExpand_>& other)
-		: inlined_vector(other.begin(), other.end(), other.size()) {}
+		: inlined_vector(other.begin(), other.end(), other.size()) {
+		other.assert_integrity();
+		assert_integrity();
+	}
 
 	inlined_vector(inlined_vector&& other)
 		: base_t(std::move(other.data_internal_), other.size_, other.inlined_),
@@ -533,16 +559,25 @@ public:
 		inlined_(other.inlined_) {
 		other.inlined_ = true;
 		other.size_ = 0;
+
+		other.assert_integrity();
+		assert_integrity();
 	}
 
 	template<class Container>
-	inlined_vector(const Container& els) : inlined_vector(els.begin(), els.end(), els.size()) {}
+	inlined_vector(const Container& els) : inlined_vector(els.begin(), els.end(), els.size()) {
+		assert_integrity();
+	}
 
 	inlined_vector(std::initializer_list<T> els)
-		: inlined_vector(els.begin(), els.end(), els.size()) {}
+		: inlined_vector(els.begin(), els.end(), els.size()) {
+		assert_integrity();	
+	}
 
 	inlined_vector(const inlined_vector& other)
-		: inlined_vector(other.begin(), other.end(), other.size()) {}
+		: inlined_vector(other.begin(), other.end(), other.size()) {
+		assert_integrity();
+	}
 
 	inlined_vector& operator=(inlined_vector&& other) {
 		inlined_ = other.inlined_;
@@ -551,6 +586,8 @@ public:
 		data_external_ = std::move(other.data_external_);
 		other.inlined_ = true;
 		other.size_ = 0;
+		other.assert_integrity();
+		assert_integrity();
 		return *this;
 	}
 
@@ -559,6 +596,8 @@ public:
 		size_ = other.size_;
 		data_internal_ = other.data_internal_;
 		data_external_ = other.data_external_;
+		other.assert_integrity();
+		assert_integrity();
 		return *this;
 	}
 
@@ -566,12 +605,14 @@ public:
 		for (auto v : other) {
 			push_back(std::move(v));
 		}
+		assert_integrity();
 	}
 
 	void extend(std::initializer_list<T> other) {
 		for (auto v : other) {
 			push_back(std::move(v));
 		}
+		assert_integrity();
 	}
 
 	inline virtual bool can_expand() const override final { return true; }
@@ -584,6 +625,7 @@ public:
 			inlined_ = true;
             size_ = 0;
 			data_external_.clear();
+			assert_integrity();
 		}
 	}
 
@@ -601,8 +643,9 @@ public:
 		else {
 			data_external_.push_back(value);
 			size_++;
-            assert(size_ == data_external_.size());
 		}
+
+		assert_integrity();
     }
 
 	template <typename U>
@@ -617,8 +660,9 @@ public:
 		else {
 			data_external_.push_back(std::forward<U>(value));
 			size_++;
-            assert(size_ == data_external_.size());
 		}
+
+		assert_integrity();
 	}
 
 	template<class... Args> inline void emplace_back(Args&&... args) {
@@ -632,8 +676,9 @@ public:
 		else {
 			data_external_.emplace_back(std::forward<Args>(args)...);
 			size_++;
-            assert(size_ == data_external_.size());
 		}
+
+		assert_integrity();
 	}
 
 	inline void pop_back() override final {
@@ -645,8 +690,9 @@ public:
                 // TODO: become inlined again if small enough?
                 data_external_.pop_back();
 			    size_--;
-                assert(size_ == data_external_.size());
             }
+
+			assert_integrity();
 		}
 	}
 
@@ -681,7 +727,7 @@ public:
 			}
             data_internal_.pop_back();
 			size_--;
-            assert(size_ == data_internal_.size());
+			assert_integrity();
 			return begin() + i;
 		}
 		else {
@@ -689,7 +735,7 @@ public:
 			// Note: a bug in gcc 4.8.4 means we have to use a non-const iterator here
 			auto vit = std::next(data_external_.begin(), std::distance(cbegin(), it));
             auto res = unwrap(data_external_.erase(vit));
-            assert(size_ == data_external_.size());
+			assert_integrity();
 			return res;
 		}
 	}
@@ -708,6 +754,7 @@ public:
 
 		if (it == end()) {
 			push_back(value);
+			assert_integrity();
 			return end();
 		}
 		else {
@@ -715,7 +762,7 @@ public:
 			// NB: dataVector may not have a T* iterator
 			auto vit = std::next(data_external_.begin(), std::distance(begin(), it));
 			auto res = unwrap(data_external_.insert(vit, value));
-            assert(size_ == data_external_.size());
+			assert_integrity();
             return res;
 		}
 	}
@@ -738,6 +785,8 @@ protected:
 			std::move(begin_, end_, data_external_.begin());
 			inlined_ = false;
 		}
+
+		assert_integrity();
 	}
 
 	// Sometimes std::vector<T>::iterator isn't a T* (e.g., in clang/libcxx)
@@ -755,7 +804,23 @@ protected:
 		assert(inlined_);
 		data_internal_.emplace_into(data_external_);
 		inlined_ = false;
+
+		assert_integrity();
 	}
+
+public:
+#ifndef NDEBUG
+	virtual void assert_integrity() const override final {
+		if (inlined_) {
+			assert(size_ == data_internal_.size());
+			assert(0 == data_external_.size());
+		}
+		else {
+			assert(0 == data_internal_.size());
+			assert(size_ == data_external_.size());
+		}
+	}
+#endif
 
 	template<typename T_, int Capacity_>
 	friend std::ostream& operator<<(std::ostream& out, const inlined_vector<T_, Capacity_, true>& vector);
