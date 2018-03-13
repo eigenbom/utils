@@ -824,7 +824,9 @@ public:
 			assert(size_ == data_external_.size());
 		}
 	}
-#endif
+#else 
+	void assert_integrity() {}
+#endif 
 
 	template<typename T_, int Capacity_>
 	friend std::ostream& operator<<(std::ostream& out, const inlined_vector<T_, Capacity_, true>& vector);
