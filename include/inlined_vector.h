@@ -501,7 +501,7 @@ public:
 		assert(size_ == data_internal_.size());
 	}
 #else 
-	void assert_integrity() {}
+	void assert_integrity() const {}
 #endif 
 
 	template<typename T_, int Capacity_>
@@ -825,7 +825,7 @@ public:
 		}
 	}
 #else 
-	void assert_integrity() {}
+	void assert_integrity() const {}
 #endif 
 
 	template<typename T_, int Capacity_>
