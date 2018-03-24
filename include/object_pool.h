@@ -201,9 +201,6 @@ private:
 };
 } // namespace detail
 
-// Personal note: my object_is_valid() will be something like:
-// value.id!=InvalidId && value.enabled() && !value.toBeRemoved()
-
 namespace detail {
 	template <typename T, typename ID>
 	struct default_object_pool_policy {
