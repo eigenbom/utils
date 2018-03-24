@@ -247,7 +247,7 @@ TEST_CASE("ring_buffer errors", "[ring_buffer]") {
 	}
 
 	SECTION("full and out of range") {
-		for (int i = 0; i < ring.max_size(); ++i) ring.add(i);
+		for (int i = 0; i < ring.max_size(); ++i) ring.push_back(i);
 		CHECK_NOTHROW(ring.at(0));
 		CHECK_THROWS_AS(ring.at(-1), std::out_of_range);
 		CHECK_THROWS_AS(ring.at(8), std::out_of_range);

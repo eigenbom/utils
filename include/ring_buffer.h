@@ -96,10 +96,7 @@ public:
     template <typename Container>
     ring_buffer(const Container& els):ring_buffer(els.begin(), els.end()){}
     ring_buffer(std::initializer_list<T> list):ring_buffer(list.begin(), list.end()){}
-
-    // [[deprecated("use start() instead")]]
-	size_type index() const { return start(); }
-
+	
     size_type start() const { return start_; }
 
 	size_type count() const { return count_; }
@@ -117,12 +114,7 @@ public:
         if (index >= start_) return (index - start_) < count_;
         else return (max_size() - (start_ - index)) < count_;
     }
-
-    // [[deprecated("use push_back() instead")]]
-	void add(const T& element) {
-		push_back(element);
-	}
-
+	
     // Add an element to the end of the ring buffer
     template <typename U>
     void push_back(U&& value){
