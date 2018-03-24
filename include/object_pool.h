@@ -429,9 +429,9 @@ protected:
 	storage_pool objects_;
 
 protected:
-	inline uint32_t mask_index(id_type id) const {
+	inline uint16_t mask_index(id_type id) const {
 		const uint32_t index_mask = 0xffff;
-		return static_cast<uint32_t>(id) & index_mask;
+		return static_cast<uint16_t>(static_cast<uint32_t>(id) & index_mask);
 	}
 
 	inline index_type& index(id_type id) {
