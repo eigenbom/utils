@@ -520,16 +520,33 @@ TEST_CASE("object_pool (object with id)", "[object_pool]") {
 }
 
 TEST_CASE("object_pool (internal consistency)", "[object_pool][current]") {
-    object_pool<int> pool {512};
+    object_pool<int> pool {8};
+	pool.debug_check_internal_consistency();
+
     std::default_random_engine engine {0};
 
     auto random_int = [&engine](int from, int to){
         return std::uniform_int_distribution<int>{from, to}(engine);
     };
+
+	SECTION("fill below capacity") {
+		for (int i = 0; i < 4; ++i) {
+			pool.construct(random_int(0, 100));
+			pool.debug_check_internal_consistency();
+		}
+	}
+
+	SECTION("fill to capacity") {
+		for (int i = 0; i < 8; ++i) {
+			pool.construct(random_int(0, 100));
+			pool.debug_check_internal_consistency();
+		}
+	}
+
     
 	SECTION("don't grow") {
 		std::list<uint32_t> ids;
-		for (int i = 0; i < 256; ++i) {
+		for (int i = 0; i < 4; ++i) {
 			auto res = pool.construct(random_int(0, 100));
 			ids.push_back(res.first);
 		}
@@ -537,7 +554,7 @@ TEST_CASE("object_pool (internal consistency)", "[object_pool][current]") {
 		pool.debug_check_internal_consistency();
 
 		// Randomly insert and remove things and then check consistency of freelist
-		for (int i = 0; i < 128; ++i) {
+		for (int i = 0; i < 2; ++i) {
 			if (random_int(0, 1) == 0) {
 				auto res = pool.construct(random_int(0, 100));
 				ids.push_back(res.first);
@@ -555,7 +572,7 @@ TEST_CASE("object_pool (internal consistency)", "[object_pool][current]") {
 
 	SECTION("grow") {
 		std::list<uint32_t> ids;
-		for (int i = 0; i < 256; ++i) {
+		for (int i = 0; i < 4; ++i) {
 			auto res = pool.construct(random_int(0, 100));
 			ids.push_back(res.first);
 		}
@@ -565,8 +582,9 @@ TEST_CASE("object_pool (internal consistency)", "[object_pool][current]") {
 			assert(pool.count(id) > 0);
 		}
 
-		for (int i = 0; i < 1024; ++i) {
-			if (random_int(0, 4) > 0) {
+		for (int i = 0; i < 8; ++i) {
+			// if (random_int(0, 4) > 0) 
+			{
 				auto res = pool.construct(random_int(0, 100));
 				ids.push_back(res.first);
 				for (auto id : ids) {
@@ -574,6 +592,7 @@ TEST_CASE("object_pool (internal consistency)", "[object_pool][current]") {
 				}
 				pool.debug_check_internal_consistency();
 			}
+			/*
 			else {
 				auto it = std::next(ids.begin(), random_int(0, ids.size() - 1));
 				pool.remove(*it);
@@ -582,7 +601,7 @@ TEST_CASE("object_pool (internal consistency)", "[object_pool][current]") {
 					assert(pool.count(id) > 0);
 				}
 				pool.debug_check_internal_consistency();
-			}
+			}*/
 		}
 	}
 
