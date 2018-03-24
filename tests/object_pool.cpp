@@ -519,7 +519,7 @@ TEST_CASE("object_pool (object with id)", "[object_pool]") {
     CHECK(quote3.id == id3.first);
 }
 
-TEST_CASE("object_pool (internal consistency)", "[object_pool]") {
+TEST_CASE("object_pool (internal consistency)", "[object_pool][current]") {
     object_pool<int> pool {512};
     std::default_random_engine engine {0};
 
@@ -527,26 +527,65 @@ TEST_CASE("object_pool (internal consistency)", "[object_pool]") {
         return std::uniform_int_distribution<int>{from, to}(engine);
     };
     
-    std::list<uint32_t> ids;
-    for (int i=0; i<256; ++i){
-        auto res = pool.construct(random_int(0, 100));
-        ids.push_back(res.first);
-    }
+	SECTION("don't grow") {
+		std::list<uint32_t> ids;
+		for (int i = 0; i < 256; ++i) {
+			auto res = pool.construct(random_int(0, 100));
+			ids.push_back(res.first);
+		}
 
-    // Randomly insert and remove things and then check consistency of freelist
-    for (int i=0; i<128; ++i){
-        if (random_int(0, 1) == 0){
-            auto res = pool.construct(random_int(0, 100));
-            ids.push_back(res.first);
-        }
-        else {
-            auto it = std::next(ids.begin(), random_int(0, ids.size()-1));
-            pool.remove(*it);
-            ids.erase(it);
-        }
-    }
+		pool.debug_check_internal_consistency();
 
-    pool.debug_check_internal_consistency();
+		// Randomly insert and remove things and then check consistency of freelist
+		for (int i = 0; i < 128; ++i) {
+			if (random_int(0, 1) == 0) {
+				auto res = pool.construct(random_int(0, 100));
+				ids.push_back(res.first);
+			}
+			else {
+				auto it = std::next(ids.begin(), random_int(0, ids.size() - 1));
+				pool.remove(*it);
+				ids.erase(it);
+			}
+
+
+			pool.debug_check_internal_consistency();
+		}
+	}
+
+	SECTION("grow") {
+		std::list<uint32_t> ids;
+		for (int i = 0; i < 256; ++i) {
+			auto res = pool.construct(random_int(0, 100));
+			ids.push_back(res.first);
+		}
+		pool.debug_check_internal_consistency();
+
+		for (auto id : ids) {
+			assert(pool.count(id) > 0);
+		}
+
+		for (int i = 0; i < 1024; ++i) {
+			if (random_int(0, 4) > 0) {
+				auto res = pool.construct(random_int(0, 100));
+				ids.push_back(res.first);
+				for (auto id : ids) {
+					assert(pool.count(id) > 0);
+				}
+				pool.debug_check_internal_consistency();
+			}
+			else {
+				auto it = std::next(ids.begin(), random_int(0, ids.size() - 1));
+				pool.remove(*it);
+				ids.erase(it);
+				for (auto id : ids) {
+					assert(pool.count(id) > 0);
+				}
+				pool.debug_check_internal_consistency();
+			}
+		}
+	}
+
 }
 
 #ifdef DEBUG_MEMORY 
