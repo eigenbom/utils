@@ -27,7 +27,6 @@ static bool s_debug_log_allocations = false;
 static std::ostringstream s_debug_log_stream;
 
 namespace bsp {
-
     template <typename T, typename ID, class Policy>
     void log_error(const object_pool<T, ID, Policy>& pool, const char* message){
         std::cerr << "Error: object_pool<" << type_name<T>::get() << ">:" << message << "\n";
@@ -301,6 +300,20 @@ TEST_CASE("object_pool (int)", "[object_pool]") {
         std::vector<int> otherPowers { 512, 2, 32, 8, 128 };
         CHECK_THAT(pool, Equals(pool, otherPowers));        
     }
+
+	SECTION("front()") {
+		pool.construct(42);
+		pool.construct(43);
+		pool.construct(44);
+		CHECK(pool.front() == 42);
+	}
+
+	SECTION("back()") {
+		pool.construct(42);
+		pool.construct(43);
+		pool.construct(44);
+		CHECK(pool.back() == 44);
+	}
 }
 
 TEST_CASE("object_pool (std::string)", "[object_pool]") {

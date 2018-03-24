@@ -345,9 +345,9 @@ public:
 
 	const_reference front() const { return objects_[0]; }
 
-	reference back() { return objects_[0]; }
+	reference back() { return objects_[num_objects_-1]; }
 
-	const_reference back() const { return objects_[0]; }
+	const_reference back() const { return objects_[num_objects_ - 1]; }
 
 	const storage_pool& objects() const { return objects_; }
 
