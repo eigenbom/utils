@@ -519,7 +519,7 @@ TEST_CASE("object_pool (object with id)", "[object_pool]") {
     CHECK(quote3.id == id3.first);
 }
 
-TEST_CASE("object_pool (internal consistency)", "[object_pool][current]") {
+TEST_CASE("object_pool (internal consistency)", "[object_pool]") {
     object_pool<int> pool {8};
 	pool.debug_check_internal_consistency();
 
@@ -583,8 +583,7 @@ TEST_CASE("object_pool (internal consistency)", "[object_pool][current]") {
 		}
 
 		for (int i = 0; i < 8; ++i) {
-			// if (random_int(0, 4) > 0) 
-			{
+			if (random_int(0, 4) > 0){
 				auto res = pool.construct(random_int(0, 100));
 				ids.push_back(res.first);
 				for (auto id : ids) {
@@ -592,7 +591,6 @@ TEST_CASE("object_pool (internal consistency)", "[object_pool][current]") {
 				}
 				pool.debug_check_internal_consistency();
 			}
-			/*
 			else {
 				auto it = std::next(ids.begin(), random_int(0, ids.size() - 1));
 				pool.remove(*it);
@@ -601,10 +599,18 @@ TEST_CASE("object_pool (internal consistency)", "[object_pool][current]") {
 					assert(pool.count(id) > 0);
 				}
 				pool.debug_check_internal_consistency();
-			}*/
+			}
 		}
 	}
 
+	/*
+	SECTION("fill to max_size()") {
+		for (int i = 0; i < pool.max_size(); ++i) {
+			pool.construct(random_int(0, 100));
+			if (i % 64 == 0) pool.debug_check_internal_consistency();
+		}
+	}
+	*/
 }
 
 #ifdef DEBUG_MEMORY 

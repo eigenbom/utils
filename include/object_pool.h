@@ -307,7 +307,7 @@ public:
 			destroy(objects_[i]);
 		}
 		num_objects_ = 0;
-		for (size_type i = 0; i < max_size(); ++i) {
+		for (size_type i = 0; i < max_size_; ++i) {
 			auto& index = indices_[i];
 			index.id = static_cast<id_type>(i);
 			index.next = static_cast<uint16_t>(i + 1);
@@ -355,9 +355,9 @@ public:
 
 	inline size_type size() const { return num_objects_; }
 	
-	inline size_type capacity() const { return capacity_; }
+	inline size_type capacity() const { return std::min(capacity_, max_size()); }
 
-	static constexpr size_type max_size() { return max_size_; }
+	static constexpr size_type max_size() { return max_size_ - 1; }
 
 	iterator begin() { 
 		auto it = iterator(*this, 0);
@@ -386,8 +386,7 @@ public:
 	const_iterator cend() const { return end(); }
 	
 	bool debug_check_internal_consistency() const {
-		// trace freelist
-		int ni = freelist_deque_;
+		// trace freelist		
 		if (freelist_deque_ == capacity_) {
 			if (freelist_deque_ != freelist_enque_){
 				error("object_pool: freelist_deque_ != freelist_enque_");
@@ -395,10 +394,9 @@ public:
 			}
 		}
 		else {
+			int ni = freelist_deque_;
 			int count = 1;
-			while (true) {
-				if (ni == freelist_enque_)
-					break;
+			while (ni != freelist_enque_) {
 				ni = indices_[ni].next;
 				count++;
 			}
@@ -447,46 +445,41 @@ protected:
 			throw std::length_error("object_pool: maximum capacity exceeded");
 		}
 
-		if (num_objects_ >= capacity_) {
-			size_type new_size = std::min(capacity_ + initial_capacity_, max_size());
-			if (new_size <= max_size()) {
-				int num_new_objects = new_size - capacity_;
-				bool allocated = false;
-				// TODO: This behaviour could be in policy
-				const int resize_attempts = 8;
-				for (int i = 0; i < resize_attempts && !allocated; i++) {
-					try {
-						objects_.allocate(num_new_objects);
-						allocated = true;
-					}
+		if (num_objects_ >= capacity_ - 1) {
+			size_type new_size = std::min(capacity_ + initial_capacity_, max_size() + 1 );
+			size_type num_new_objects = new_size - capacity_;
+			bool allocated = false;
+			// TODO: This behaviour could be in policy
+			const int resize_attempts = 8;
+			for (int i = 0; i < resize_attempts && !allocated; i++) {
+				try {
+					objects_.allocate(num_new_objects);
+					allocated = true;
+				}
 #ifdef HAS_BAD_ARRAY_NEW_LENGTH
-					catch (std::bad_array_new_length& e){
-						error(e.what());						
-					}
+				catch (std::bad_array_new_length& e){
+					error(e.what());						
+				}
 #endif
-					catch (std::bad_alloc& e){
-						error(e.what());
-					}
-					catch (std::length_error& e){
-						error(e.what());
-					}
+				catch (std::bad_alloc& e){
+					error(e.what());
+				}
+				catch (std::length_error& e){
+					error(e.what());
+				}
 
-					if (!allocated){
-						allocation_error(num_new_objects * objects_.size_of_value());
-						num_new_objects = std::max(1, num_new_objects / 2);
-					}
-				}
 				if (!allocated){
-					throw std::length_error("object_pool: cannot append more storage");
+					allocation_error(num_new_objects * objects_.size_of_value());
+					num_new_objects = std::max(1, num_new_objects / 2);
 				}
-				log_allocation_internal(num_new_objects, num_new_objects * objects_.size_of_value());
-				capacity_ = objects_.size();
-				indices_[freelist_enque_].next = static_cast<uint16_t>(num_objects_ + 1);
-				freelist_enque_ = static_cast<uint16_t>(capacity_ - 1);
 			}
-			else {
-				throw std::length_error("object_pool: maximum capacity exceeded");
+			if (!allocated){
+				throw std::length_error("object_pool: cannot append more storage");
 			}
+			log_allocation_internal(num_new_objects, num_new_objects * objects_.size_of_value());
+			capacity_ = objects_.size();
+			indices_[freelist_enque_].next = static_cast<uint16_t>(num_objects_ + 1);
+			freelist_enque_ = static_cast<uint16_t>(capacity_ - 1);
 		}
 
 		index_type& in = indices_[freelist_deque_];
@@ -507,7 +500,7 @@ protected:
 			index(object_policy::get_object_id(target)).index = index_.index;
 		}
 		else {
-			for (size_type i = 0; i < max_size(); ++i){
+			for (size_type i = 0; i < max_size_; ++i){
 				if (indices_[i].index == num_objects_ - 1){
 					indices_[i].index = index_.index;
 					break;
