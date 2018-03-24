@@ -101,7 +101,7 @@ public:
 		if (current_bytes > max_bytes - new_bytes){
 			throw std::length_error("object_pool: current_bytes > max_bytes - new_bytes");
 		}
-		T* data = reinterpret_cast<T*>(new aligned_storage_type[new_bytes]);
+		T* data = reinterpret_cast<T*>(new aligned_storage_type[size]);
 		assert (data != nullptr);
 		storages_.emplace_back(new_bytes, size, offset, data);
 		size_ += size;
@@ -432,7 +432,7 @@ protected:
 	storage_pool objects_;
 
 protected:
-	inline uint32_t mask_index(id_type id){
+	inline uint32_t mask_index(id_type id) const {
 		const uint32_t index_mask = 0xffff;
 		return static_cast<uint32_t>(id) & index_mask;
 	}
