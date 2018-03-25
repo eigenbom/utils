@@ -58,6 +58,8 @@ public:
 	size_type size() const { return size_; }
 	static constexpr inline size_type max_size() { return Capacity; }    
 
+	void set_size(size_type size) { assert(size <= max_size()); size_ = size; }
+
 	char& operator[](size_type index) {	return data_[index]; }
 	const char& operator[](size_type index) const { return data_[index]; }
 
