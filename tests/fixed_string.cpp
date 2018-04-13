@@ -36,7 +36,7 @@ TEST_CASE("fixed_string basics", "[fixed_string]") {
         CHECK(str.empty());
     }
 
-    SECTION("constructed"){
+    SECTION("constructed from const char*"){
         fixed_string<8> str { "Hello" };
         CHECK(str.max_size() == 8);    
         CHECK(str.size() == 5);
@@ -47,6 +47,7 @@ TEST_CASE("fixed_string basics", "[fixed_string]") {
         CHECK(str[5] == '\0');
         CHECK_THAT(str.str(), Equals("Hello"));
     }
+
 
     SECTION("copied"){
         fixed_string<8> str { "Hello" };
@@ -86,10 +87,30 @@ TEST_CASE("fixed_string basic operations", "[fixed_string]") {
         CHECK_THAT(str.str(), Equals("Hello"));
     }
 
+    SECTION("constructed from char array"){
+        const char array[16] = {'\0'};
+        fixed_string<8> str {array};
+        CHECK(str.max_size() == 8);    
+        CHECK(str.size() == 0);
+        CHECK(str.empty());
+    }
+
     SECTION ("copy construction"){
         fixed_string<8> hello = "Hello";
         fixed_string<8> str = hello;
         CHECK_THAT(str.str(), Equals("Hello"));
+    }
+
+    SECTION("copy construction"){
+        const char array[16] = {'\0'};
+        fixed_string<8> str = array;
+        CHECK(str.empty());
+    }
+
+    SECTION("copy construction"){
+        char array[16] = {'\0'};
+        fixed_string<8> str = array;
+        CHECK(str.empty());
     }
 
     SECTION ("copy assignment"){
@@ -98,6 +119,20 @@ TEST_CASE("fixed_string basic operations", "[fixed_string]") {
         str = hello;
         CHECK(str.size() == 5);
         CHECK_THAT(str.str(), Equals("Hello"));
+    }
+
+    SECTION("copy assignment"){
+        const char array[16] = {'\0'};
+        fixed_string<8> str {true};
+        str = array;
+        CHECK(str.empty());
+    }
+
+    SECTION("copy assignment"){
+        char array[16] = {'\0'};
+        fixed_string<8> str {true};
+        str = array;
+        CHECK(str.empty());
     }
 
     SECTION ("move construction"){

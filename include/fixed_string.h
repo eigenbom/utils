@@ -43,10 +43,14 @@ public:
     fixed_string& operator=(fixed_string&& str) = default;
 	
     fixed_string(const char* str, bool truncates = false):fixed_string(str, str+strlen(str), truncates) {}	
-    template <typename String> fixed_string(const String& str, bool truncates = false):fixed_string(str.begin(), str.end(), truncates) {}
+    template <typename String> fixed_string(const String& str, bool truncates = false):fixed_string(std::begin(str), std::end(str), truncates) {}
 
 	fixed_string& operator=(const char* str) { return assign(str, str + strlen(str)); }
-    template <typename String> fixed_string& operator=(const String& str) { return assign(str.begin(), str.end()); }
+    template <typename String> fixed_string& operator=(const String& str) { 
+        using std::begin;
+        using std::end;
+        return assign(begin(str), end(str));
+    }
 
 	std::string str() const { return std::string(begin(), end()); }
 	const char* c_str() const { return data_.data(); }
@@ -76,9 +80,10 @@ public:
         auto size = static_cast<size_type>(std::distance(begin_, end_));
         if (size > max_size() && !truncates_) error("fixed_string is too long!");
 		zero_contents();
-		size_ = std::min(size, max_size());
+        size_ = std::min(size, max_size());
 		std::copy(begin_, std::next(begin_, size_), data_.begin());
         data_[size_] = '\0';
+        size_ = static_cast<size_type>(std::distance(begin(), std::find(begin(), end(), '\0')));
 		return *this;
     }
 
@@ -90,13 +95,14 @@ protected:
 protected:
     // Helper constructor
     template <typename Iter>
-    fixed_string(Iter begin, Iter end, bool truncates = false):truncates_(truncates) {
-        auto size = static_cast<size_type>(std::distance(begin, end));
+    fixed_string(Iter begin_, Iter end_, bool truncates = false):truncates_(truncates) {
+        auto size = static_cast<size_type>(std::distance(begin_, end_));
 		if (size > max_size() && !truncates_) error("fixed_string is too long!");
         zero_contents();
 		size_ = std::min(size, max_size());
-		std::copy(begin, std::next(begin, size_), data_.begin());
+		std::copy(begin_, std::next(begin_, size_), data_.begin());
         data_[size_] = '\0';
+        size_ = static_cast<size_type>(std::distance(begin(), std::find(begin(), end(), '\0')));
     }
 
     inline void zero_contents(){
