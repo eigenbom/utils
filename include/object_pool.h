@@ -239,9 +239,9 @@ public:
 	using id_type = ID;
 	using value_type = T;
 	using reference = T&;
-	using const_reference = const reference;
+	using const_reference = const T&;
 	using pointer = T*;
-	using const_pointer = const pointer;
+	using const_pointer = const T*;
 	using size_type = int;
 	using iterator = detail::object_pool_iterator<object_pool>;
 	using const_iterator = detail::object_pool_const_iterator<object_pool>;
