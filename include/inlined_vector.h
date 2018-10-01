@@ -226,11 +226,11 @@ public:
     }
 
 	template<class Container>
-	inlined_vector(const Container& els) : inlined_vector(els.begin(), els.size()) {
+	inlined_vector(const Container& els) : inlined_vector(els.begin(), (int) els.size()) {
 		assert_integrity();
 	}
 
-	inlined_vector(std::initializer_list<T> els) : inlined_vector(els.begin(), els.size()) {
+	inlined_vector(std::initializer_list<T> els) : inlined_vector(els.begin(), (int) els.size()) {
 		assert_integrity();
 	}
 
@@ -574,7 +574,7 @@ public:
 	}
 
 	inlined_vector(std::initializer_list<T> els)
-		: inlined_vector(els.begin(), els.end(), els.size()) {
+		: inlined_vector(els.begin(), els.end(), (int) els.size()) {
 		assert_integrity();	
 	}
 
