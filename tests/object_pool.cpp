@@ -560,7 +560,7 @@ TEST_CASE("object_pool (internal consistency)", "[object_pool]") {
 				ids.push_back(res.first);
 			}
 			else {
-				auto it = std::next(ids.begin(), random_int(0, ids.size() - 1));
+				auto it = std::next(ids.begin(), random_int(0, (int) ids.size() - 1));
 				pool.remove(*it);
 				ids.erase(it);
 			}
@@ -592,7 +592,7 @@ TEST_CASE("object_pool (internal consistency)", "[object_pool]") {
 				pool.debug_check_internal_consistency();
 			}
 			else {
-				auto it = std::next(ids.begin(), random_int(0, ids.size() - 1));
+				auto it = std::next(ids.begin(), random_int(0, (int) ids.size() - 1));
 				pool.remove(*it);
 				ids.erase(it);
 				for (auto id : ids) {
@@ -649,3 +649,44 @@ TEST_CASE("object_pool (benchmarks)", "[!benchmark]"){
             pool.construct(i);
     }
 }
+
+struct simple_id {
+	uint32_t id = 0;
+	uint32_t data = 0;
+};
+
+struct simple_id_policy {
+	static const bool store_id_in_object = true;
+	static const bool shrink_after_clear = false;
+	static bool is_object_iterable(const simple_id& value) { 
+		// std::cout << "inspecting " << value.id << "\n";
+		return value.id != 0;
+	}
+	static void set_object_id(simple_id& value, const uint32_t& id) { value.id = id; }
+	static uint32_t get_object_id(const simple_id& value) { return value.id; }
+};
+
+TEST_CASE("object_pool (iteration stops early)", "[object_pool]") {
+	object_pool<simple_id, uint32_t, simple_id_policy> pool{ 512 };	
+	
+	// Blank out memory so all elements have id = 0
+	auto& objs = pool.objects();
+	for (int i = 0; i < objs.storage_count(); ++i) {
+		auto& storage = objs.storage(i);
+		std::fill(storage.data, storage.data + storage.count, simple_id{});
+	}
+
+	// Create null object
+	pool.construct();
+
+	SECTION("Basics") {
+		auto obj1 = pool.construct();
+		obj1.second->data = 42;
+		auto obj2 = pool.construct();
+		obj2.second->data = 13;
+		auto it = pool.begin();
+		while (it != pool.end()) ++it;
+		CHECK(&(*it) == &(*pool.end()));
+	}
+}
+
