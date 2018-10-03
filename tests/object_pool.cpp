@@ -20,6 +20,7 @@
 
 using bsp::object_pool;
 using bsp::detail::storage_pool;
+using bsp::detail::storage_pool_fixed;
 using Catch::Equals;
 using Catch::StartsWith;
 
@@ -220,6 +221,114 @@ TEST_CASE("storage_pool allocation_error", "[.allocation_error]") {
             CHECK(true);
         }
     }
+}
+
+
+TEST_CASE("storage_pool_fixed", "[storage_pool_fixed]") {
+
+	SECTION("construction (ints)") {
+		storage_pool_fixed<int> arr{ 512, 8 };
+		CHECK(arr.storage_count() == 1);
+		CHECK(arr.size() == 512);
+	}
+
+	SECTION("adding storage (ints)") {
+		storage_pool_fixed<int> arr{ 512, 8 };
+		CHECK_NOTHROW(arr.allocate());
+		CHECK(arr.storage_count() == 2);
+		CHECK(arr.size() == 512 + 512);
+	}
+
+	SECTION("creating and destroying ints") {
+		storage_pool_fixed<int> arr{ 512, 8 };
+		new (&arr[0]) int{ 42 };
+		CHECK(arr[0] == 42);
+		// No need to destroy
+	}
+
+	using int_vector = std::vector<int>;
+	
+	SECTION("construction (int_vector)") {
+		storage_pool_fixed<int_vector> arr{ 512, 8 };
+		CHECK(arr.storage_count() == 1);
+		CHECK(arr.size() == 512);
+	}
+
+	SECTION("adding storage (int_vector)") {
+		storage_pool_fixed<int_vector> arr{ 512, 8 };
+		arr.allocate();
+		CHECK(arr.storage_count() == 2);
+		CHECK(arr.size() == 512 + 512);
+	}
+
+	SECTION("creating and destroying (int_vector)") {
+		storage_pool_fixed<int_vector> arr{ 512, 8 };
+		new (&arr[0]) int_vector(100, 42);
+		CHECK(arr[0].size() == 100);
+		CHECK(arr[0][0] == 42);
+		(&arr[0])->~int_vector();
+	}
+
+	SECTION("construction and destruction (ints)") {
+		storage_pool_fixed<int> arr { 512, 8 };
+		CHECK(arr.storage_count() == 1);
+		CHECK(arr.size() == 512);
+		arr.allocate();
+		CHECK(arr.storage_count() == 2);
+		CHECK(arr.size() == 1024);
+		arr.deallocate();
+		CHECK(arr.storage_count() == 1);
+		CHECK(arr.size() == 512);
+		arr.deallocate();
+		CHECK(arr.storage_count() == 0);
+		CHECK(arr.size() == 0);
+	}
+}
+
+TEST_CASE("storage_pool_fixed (benchmarks)", "[!benchmark][storage_pool_fixed]") {
+	const int page_size = 512;
+	const int num_pages = 8;
+	storage_pool_fixed<int> pool { page_size, num_pages };
+	for (int i = 0; i < num_pages - 1; ++i) pool.allocate();
+
+	BENCHMARK("construct elements") {
+		for (int i = 0; i < page_size * num_pages; ++i) {
+			new (&pool[i]) int(i);
+		}
+	}
+
+	BENCHMARK("iterate elements") {
+		for (int i = 0; i < page_size * num_pages; ++i) {
+			new (&pool[i]) int(i);
+		}
+
+		for (int i = 0; i < page_size * num_pages; ++i) {
+			volatile int x = pool[i];
+		}
+	}
+}
+
+TEST_CASE("storage_pool (benchmarks)", "[!benchmark][storage_pool]") {
+	const int page_size = 512;
+	const int num_pages = 8;
+	storage_pool<int> pool{ page_size };
+	for (int i = 0; i < num_pages - 1; ++i) pool.allocate(page_size);
+
+	BENCHMARK("construct elements") {
+		for (int i = 0; i < page_size * num_pages; ++i) {
+			new (&pool[i]) int(i);
+		}
+	}
+
+	BENCHMARK("iterate elements") {
+		for (int i = 0; i < page_size * num_pages; ++i) {
+			new (&pool[i]) int(i);
+		}
+
+		for (int i = 0; i < page_size * num_pages; ++i) {
+			volatile int x = pool[i];
+		}
+	}
 }
 
 struct hero {

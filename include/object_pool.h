@@ -150,6 +150,100 @@ protected:
 	}
 };
 
+template<typename T> class storage_pool_fixed {
+public:
+	using value_type = T;
+	using reference = T & ;
+	using const_reference = const T&;
+	using size_type = int;
+	using aligned_storage_type = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
+
+	struct storage_type {
+		size_type bytes = 0;
+		size_type count = 0;
+		size_type offset = 0;
+		T* data = nullptr;
+
+		storage_type() = default;
+		storage_type(size_type bytes, size_type count, size_type offset, T* data) :bytes(bytes), count(count), offset(offset), data(data) {}
+		storage_type(const storage_type&) = delete;
+		storage_type& operator=(const storage_type&) = delete;
+		storage_type(storage_type&& rhs) :bytes(rhs.bytes), count(rhs.count), offset(rhs.offset), data(rhs.data) {
+			rhs.bytes = 0;
+			rhs.count = 0;
+			rhs.offset = 0;
+			rhs.data = nullptr;
+		}
+	};
+
+public:
+	explicit storage_pool_fixed(size_type allocation_size, int max_pages) : allocation_size_(allocation_size), max_pages_(max_pages) {
+		assert(allocation_size_ > 0);
+		assert(max_pages_ > 0);
+		storages_.reserve(max_pages_);
+		allocate();
+	}
+
+	storage_pool_fixed(const storage_pool_fixed&) = delete;
+	storage_pool_fixed& operator=(const storage_pool_fixed&) = delete;
+	storage_pool_fixed(storage_pool_fixed&&) = delete;
+	storage_pool_fixed& operator=(storage_pool_fixed&&) = delete;
+
+	~storage_pool_fixed() {
+		for (auto& s : storages_) destroy(s);
+	}
+
+	void allocate() {
+		if (storages_.size() == max_pages_) {
+			throw std::length_error("storage_pool_fixed exceeded page count");
+		}
+		const size_type offset = size_;
+		const size_type allocation_bytes = size_of_value() * allocation_size_;
+		T* data = reinterpret_cast<T*>(new aligned_storage_type[allocation_size_]);
+		assert(data != nullptr);
+		storages_.emplace_back(allocation_bytes, allocation_size_, offset, data);
+		size_ += allocation_size_;
+	}
+
+	// Deallocates the most recently allocated storage
+	void deallocate() {
+		assert(storages_.size() > 0);
+		auto& back_storage = storages_.back();
+		auto count = back_storage.count;
+		size_ -= count;
+		destroy(back_storage);
+		storages_.pop_back();
+	}
+
+	inline size_type size() const { return size_; }
+
+	inline size_type bytes() const { return size_ * size_of_value(); }
+
+	inline size_type storage_count() const { return (size_type)storages_.size(); }
+
+	const storage_type& storage(size_type i) const { return *std::next(storages_.begin(), i); }
+
+	inline reference operator[](size_type index) { return const_cast<reference>(static_cast<const storage_pool_fixed*>(this)->operator[](index)); }
+
+	const_reference operator[](size_type index) const {
+		return storages_[index / allocation_size_].data[index % allocation_size_];
+	}
+
+	inline size_type size_of_value() const { return static_cast<size_type>(sizeof(T)); };
+
+protected:
+	size_type size_ = 0;
+	size_type allocation_size_ = 0;
+	int max_pages_ = 0;
+	std::vector<storage_type> storages_;
+
+protected:
+	void destroy(storage_type& s) {
+		if (s.data) delete[]reinterpret_cast<aligned_storage_type*>(s.data);
+		s.data = nullptr;
+	}
+};
+
 template <class object_pool>
 class object_pool_iterator: public std::iterator<std::input_iterator_tag, typename object_pool::value_type> {
 public:
