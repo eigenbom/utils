@@ -93,7 +93,7 @@ TEST_CASE("object_pool print allocations", "[object_pool]"){
 
     SECTION("expanding storage and shrink after clear"){
         {
-            object_pool<int, uint32_t, object_pool_shrink_after_clear> pool {512};
+			object_pool<int, uint32_t, object_pool_shrink_after_clear > pool{ 512 };
             CHECK(pool.objects().storage_count() == 1);
             CHECK_THAT(s_debug_log_stream.str(), StartsWith("Memory: storage_pool<i> allocated "));
             clear_debug_stream();
@@ -286,8 +286,8 @@ TEST_CASE("storage_pool_fixed", "[storage_pool_fixed]") {
 }
 
 TEST_CASE("storage_pool_fixed (benchmarks)", "[!benchmark][storage_pool_fixed]") {
-	const int page_size = 512;
-	const int num_pages = 8;
+	const int page_size = 1024;
+	const int num_pages = 64;
 	storage_pool_fixed<int> pool { page_size, num_pages };
 	for (int i = 0; i < num_pages - 1; ++i) pool.allocate();
 
@@ -309,8 +309,8 @@ TEST_CASE("storage_pool_fixed (benchmarks)", "[!benchmark][storage_pool_fixed]")
 }
 
 TEST_CASE("storage_pool (benchmarks)", "[!benchmark][storage_pool]") {
-	const int page_size = 512;
-	const int num_pages = 8;
+	const int page_size = 1024;
+	const int num_pages = 64;
 	storage_pool<int> pool{ page_size };
 	for (int i = 0; i < num_pages - 1; ++i) pool.allocate(page_size);
 
@@ -750,13 +750,24 @@ TEST_CASE("object_pool (check for mem leak from move_into)") {
 #endif
 
 TEST_CASE("object_pool (benchmarks)", "[!benchmark]"){
-    static const int size = 512;
-    object_pool<int> pool {512};
+    static const int page_size = 512;
+	static const int num_pages = 32;   
 
     BENCHMARK("construct elements") {
-        for(int i = 0; i < size; ++i)
+		object_pool<int> pool{ page_size };
+        for(int i = 0; i < page_size * num_pages; ++i)
             pool.construct(i);
     }
+
+	BENCHMARK("iterate elements") {
+		object_pool<int> pool{ page_size };
+		for (int i = 0; i < page_size * num_pages; ++i)
+			pool.construct(i);
+
+		for (int i = 0; i < page_size * num_pages; ++i) {
+			volatile int x = pool[i];
+		}
+	}
 }
 
 struct simple_id {

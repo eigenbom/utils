@@ -1,4 +1,3 @@
-// TODO: log
 // To customise the behaviour of the object pool
 // supply an object pool policy as a template parameter.
 // See bsp::detail::default_object_pool_policy for the format.
@@ -11,10 +10,11 @@
 #include <cassert>
 #include <climits>
 #include <cstdint>
+#include <functional>
 #include <iterator>
 #include <limits>
-#include <type_traits>
 #include <list>
+#include <type_traits>
 #include <memory>
 #include <ostream>
 #include <sstream>
@@ -89,6 +89,32 @@ public:
 
 	~storage_pool(){
 		for (auto& s: storages_) destroy(s);
+	}
+
+	std::pair<bool, size_type> attempt_allocation(size_type max_new_objects, std::function<void(const char* message)> errorCallback, std::function<void(size_type)> allocationErrorCallback) {
+		size_type num_new_objects = max_new_objects;
+		const int resize_attempts = 8;
+		for (int i = 0; i < resize_attempts; i++) {
+			try {
+				allocate(num_new_objects);
+				return { true, num_new_objects };
+			}
+#ifdef HAS_BAD_ARRAY_NEW_LENGTH
+			catch (std::bad_array_new_length& e) {
+				errorCallback(e.what());
+			}
+#endif
+			catch (std::bad_alloc& e) {
+				errorCallback(e.what());
+			}
+			catch (std::length_error& e) {
+				errorCallback(e.what());
+			}
+
+			allocationErrorCallback(num_new_objects * size_of_value());
+			num_new_objects = std::max(1, num_new_objects / 2);
+		}
+		return { false, 0 };
 	}
 
 	void allocate(size_type size) {
@@ -193,6 +219,16 @@ public:
 		for (auto& s : storages_) destroy(s);
 	}
 
+	std::pair<bool, size_type> attempt_allocation(size_type max_new_objects, std::function<void(const char* message)> errorCallback, std::function<void(size_type)> allocationErrorCallback) {
+		if (max_new_objects > allocation_size_) {
+			return { false, 0 };
+		}
+		else {
+			allocate();
+			return { true, allocation_size_ };
+		}
+	}
+
 	void allocate() {
 		if (storages_.size() == max_pages_) {
 			throw std::length_error("storage_pool_fixed exceeded page count");
@@ -265,13 +301,15 @@ public:
 	const_reference operator*() const;
 	const_pointer operator->() const;
 private:
+	using storage_pool = typename object_pool::storage_pool;
+
 	object_pool& object_pool_;
-	storage_pool<value_type>& storage_pool_;
+	storage_pool& storage_pool_;
 	size_type i_  = 0;
 	size_type di_ = 0;
 	size_type end_i_ = 0;
 	size_type end_di_ = 0;
-	const typename storage_pool<value_type>::storage_type* db_ = nullptr;
+	const typename storage_pool::storage_type* db_ = nullptr;
 	
 	template <typename T> friend class object_pool_const_iterator;	
 };
@@ -295,13 +333,15 @@ public:
 	const_reference operator*() const;
 	const_pointer operator->() const;
 private:
+	using storage_pool = typename object_pool::storage_pool;
+
 	const object_pool& object_pool_;
-	const storage_pool<value_type>& storage_pool_;
+	typename const storage_pool& storage_pool_;
 	size_type i_  = 0;
 	size_type di_ = 0;
 	size_type end_i_ = 0;
 	size_type end_di_ = 0;
-	const typename storage_pool<value_type>::storage_type* db_ = nullptr;
+	const typename storage_pool::storage_type* db_ = nullptr;
 };
 } // namespace detail
 
@@ -322,12 +362,8 @@ public:
 	virtual void clear() = 0;
 };
 
-// A pool that stores objects in contiguous arrays.
-// Requirements: 
-// - ID must be castable to and from a uint32_t
-// Customisation:
-// - TODO
-// Reference: Code is heavily inspired by Bitsquid.
+// A pool that stores objects in contiguous arrays
+// Reference: Code is heavily inspired by Bitsquid
 template<typename T, typename ID = uint32_t, class ObjectPolicy = detail::default_object_pool_policy<T, ID>> class object_pool : public object_pool_base {
 public:
 	using id_type = ID;
@@ -340,12 +376,16 @@ public:
 	using iterator = detail::object_pool_iterator<object_pool>;
 	using const_iterator = detail::object_pool_const_iterator<object_pool>;
 	using object_policy = ObjectPolicy;
-	using storage_pool = detail::storage_pool<T>;
+	// using storage_pool = detail::storage_pool<T>;
+	using storage_pool = detail::storage_pool_fixed<T>;
 
 public:
 	// Construct an object pool (requires size <= max_size())
 	explicit object_pool(size_type size)
-	:initial_capacity_{size}, capacity_{size}, objects_{size}{
+	:initial_capacity_{size}, capacity_{size}, 
+		objects_{size, 1 + max_size() / size}
+		// objects_{size}
+	{
 		if (size > max_size()) throw std::length_error("object_pool: constructor size too large");
 		log_allocation_internal(objects_.size(), objects_.bytes());
 		clear();
@@ -544,6 +584,17 @@ protected:
 	inline const index_type& index(id_type id) const {
 		return indices_[mask_index(id)];
 	}
+		
+	void allocate() {
+		size_type new_size = std::min(capacity_ + initial_capacity_, max_size() + 1);
+		size_type max_new_objects = new_size - capacity_;
+		auto result = objects_.attempt_allocation(max_new_objects, [&](const char* str) { error(str); }, [&](size_type bytes) { allocation_error(bytes); });
+		if (!result.first) {
+			throw std::length_error("object_pool: cannot append more storage");
+		}
+		size_type num_new_objects = result.second;
+		log_allocation_internal(num_new_objects, num_new_objects * objects_.size_of_value());
+	}
 
 	index_type& new_index() {
 		if (num_objects_ >= max_size()) {
@@ -551,37 +602,7 @@ protected:
 		}
 
 		if (num_objects_ >= capacity_ - 1) {
-			size_type new_size = std::min(capacity_ + initial_capacity_, max_size() + 1 );
-			size_type num_new_objects = new_size - capacity_;
-			bool allocated = false;
-			// TODO: This behaviour could be in policy
-			const int resize_attempts = 8;
-			for (int i = 0; i < resize_attempts && !allocated; i++) {
-				try {
-					objects_.allocate(num_new_objects);
-					allocated = true;
-				}
-#ifdef HAS_BAD_ARRAY_NEW_LENGTH
-				catch (std::bad_array_new_length& e){
-					error(e.what());						
-				}
-#endif
-				catch (std::bad_alloc& e){
-					error(e.what());
-				}
-				catch (std::length_error& e){
-					error(e.what());
-				}
-
-				if (!allocated){
-					allocation_error(num_new_objects * objects_.size_of_value());
-					num_new_objects = std::max(1, num_new_objects / 2);
-				}
-			}
-			if (!allocated){
-				throw std::length_error("object_pool: cannot append more storage");
-			}
-			log_allocation_internal(num_new_objects, num_new_objects * objects_.size_of_value());
+			allocate();
 			capacity_ = objects_.size();
 			indices_[freelist_enque_].next = static_cast<uint16_t>(num_objects_ + 1);
 			freelist_enque_ = static_cast<uint16_t>(capacity_ - 1);
