@@ -179,13 +179,13 @@ namespace detail {
 	template <typename T_> struct is_iterator<T_, typename std::enable_if<
 		std::is_base_of<std::input_iterator_tag, typename std::iterator_traits<T_>::iterator_category>::value ||
 		std::is_same<std::output_iterator_tag, typename std::iterator_traits<T_>::iterator_category>::value>::type>: std::true_type {};
+    
+    template< bool B, class T = void >
+    using enable_if_t = typename std::enable_if<B,T>::type;
 
-    struct unused;
     template<class T_>
-    using initializer_list_of_copyable = typename std::conditional<
-        std::is_copy_constructible<T_>::value,
-        std::initializer_list<T_>,
-        unused>::type;
+    using initializer_list_of_copyable =
+        enable_if_t<std::is_copy_constructible<T_>::value, std::initializer_list<T_>>;
 }
 
 // An inlined_vector is a fixed-size array with a vector-like interface
@@ -302,7 +302,8 @@ public:
 		assert_integrity();
 	}
 
-	virtual void extend(detail::initializer_list_of_copyable<T> other) {
+    template <typename T_ = T>
+	virtual void extend(detail::initializer_list_of_copyable<T_> other) {
 		for (auto v : other) {
 			push_back(std::move(v));
 		}
@@ -619,7 +620,8 @@ public:
 		assert_integrity();
 	}
 
-	void extend(detail::initializer_list_of_copyable<T> other) override {
+    template <typename T_ = T>
+	void extend(detail::initializer_list_of_copyable<T_> other) override {
 		for (auto v : other) {
 			push_back(std::move(v));
 		}
