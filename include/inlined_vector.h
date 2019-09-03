@@ -186,6 +186,10 @@ namespace detail {
     template<class T_>
     using initializer_list_of_copyable =
         enable_if_t<std::is_copy_constructible<T_>::value, std::initializer_list<T_>>;
+
+    template<class T_>
+    using const_ref_if_copyable =
+        enable_if_t<std::is_copy_constructible<T_>::value, const T_&>>;
 }
 
 // An inlined_vector is a fixed-size array with a vector-like interface
@@ -390,7 +394,8 @@ public:
 		return begin() + i;
 	}
 
-	virtual iterator insert(iterator it, const_reference value) {
+    template <typename T_=T>
+	iterator insert(iterator it, const_ref_if_copyable<T_> value) {
 		validate_iterator(it);
 
 		if (full()) {
@@ -753,7 +758,8 @@ public:
 		}
 	}
 
-	iterator insert(iterator it, const_reference value) final override {
+    template <typename T_=T>
+	iterator insert(iterator it, const_ref_if_copyable<T_> value) {
 		base_t::validate_iterator(it);
 
 		if (inlined_ && size_ < max_size()) {
