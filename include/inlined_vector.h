@@ -303,7 +303,7 @@ public:
 	}
 
     template <typename T_ = T>
-	virtual void extend(detail::initializer_list_of_copyable<T_> other) {
+	void extend(detail::initializer_list_of_copyable<T_> other) {
 		for (auto v : other) {
 			push_back(std::move(v));
 		}
