@@ -20,10 +20,13 @@
 #include <sstream>
 #include <string>
 #include <stdexcept>
+#include <typeinfo>
+#include <vector>
 
 #define HAS_BAD_ARRAY_NEW_LENGTH
 
-#if defined(__GNUC__) && !defined(__clang__)
+// #if defined(__GNUC__) // && !defined(__clang__)
+#if defined(__GNUC__)
 	#define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
 	#if GCC_VERSION < 40902
 		#undef HAS_BAD_ARRAY_NEW_LENGTH	
@@ -336,7 +339,7 @@ private:
 	using storage_pool = typename object_pool::storage_pool;
 
 	const object_pool& object_pool_;
-	typename const storage_pool& storage_pool_;
+	const storage_pool& storage_pool_;
 	size_type i_  = 0;
 	size_type di_ = 0;
 	size_type end_i_ = 0;
@@ -486,6 +489,20 @@ public:
 		return objects_[index(id).index];
 	}
 
+	struct index_type;
+
+	size_type count(const index_type& index, id_type id) const {
+		return (index.id == id && index.index != USHRT_MAX) ? 1 : 0;
+	}
+
+	reference operator[](const index_type& index) {
+		return objects_[index.index];
+	}
+
+	const_reference operator[](const index_type& index) const {
+		return objects_[index.index];
+	}
+
 	reference front() { return objects_[0]; }
 
 	const_reference front() const { return objects_[0]; }
@@ -496,11 +513,11 @@ public:
 
 	const storage_pool& objects() const { return objects_; }
 
-	inline bool empty() const { return size() == 0; }
+	bool empty() const { return size() == 0; }
 
-	inline size_type size() const { return num_objects_; }
+	size_type size() const { return num_objects_; }
 	
-	inline size_type capacity() const { return std::min(capacity_, max_size()); }
+	size_type capacity() const { return std::min(capacity_, max_size()); }
 
 	static constexpr size_type max_size() { return max_size_ - 1; }
 
@@ -562,27 +579,29 @@ protected:
 	uint16_t freelist_enque_ = 0;
 	uint16_t freelist_deque_ = 0;
 
+public:
 	struct index_type {
 		id_type id = static_cast<id_type>(0);
 		uint16_t index = 0;
 		uint16_t next  = 0;
 	};
 
+	index_type& index(id_type id) {
+		return indices_[mask_index(id)];
+	}
+
+	const index_type& index(id_type id) const {
+		return indices_[mask_index(id)];
+	}
+
+protected:
 	std::array<index_type, max_size_> indices_;
 	storage_pool objects_;
 
 protected:
-	inline uint16_t mask_index(id_type id) const {
+	uint16_t mask_index(id_type id) const {
 		const uint32_t index_mask = 0xffff;
 		return static_cast<uint16_t>(static_cast<uint32_t>(id) & index_mask);
-	}
-
-	inline index_type& index(id_type id) {
-		return indices_[mask_index(id)];
-	}
-
-	inline const index_type& index(id_type id) const {
-		return indices_[mask_index(id)];
 	}
 		
 	void allocate() {
@@ -791,7 +810,7 @@ bool object_pool_const_iterator<object_pool>::operator!=(const object_pool_const
 }
 
 template<class object_pool> typename object_pool_const_iterator<object_pool>::const_reference object_pool_const_iterator<object_pool>::operator*() const { return db_->data[i_]; }
-template<class object_pool> typename object_pool_const_iterator<object_pool>::const_pointer object_pool_const_iterator<object_pool>::operator->() const { &return db_->data[i_]; }
+template<class object_pool> typename object_pool_const_iterator<object_pool>::const_pointer object_pool_const_iterator<object_pool>::operator->() const { return &db_->data[i_]; }
 
 }
 } // namespace bsp

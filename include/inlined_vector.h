@@ -6,7 +6,6 @@
 #define BSP_INLINED_VECTOR_H
 
 #include <algorithm>
-#include <array>
 #include <cassert>
 #include <iterator>
 #include <ostream>
@@ -214,47 +213,47 @@ public:
 	template<int Capacity_, bool CanExpand_>
 	inlined_vector(const inlined_vector<T, Capacity_, CanExpand_>& other)
 		: inlined_vector(other.begin(), other.size()) {
-        assert_integrity();
+		inlined_vector<T, Capacity, CanExpand>::assert_integrity();
 		other.assert_integrity();
     }
 
 	template<int Capacity_, bool CanExpand_>
 	inlined_vector(inlined_vector<T, Capacity_, CanExpand_>&& other)
 		: inlined_vector(other.begin(), other.size()) {
-		assert_integrity();
+		inlined_vector<T, Capacity, CanExpand>::assert_integrity();
 		other.assert_integrity();
     }
 
 	template<class Container>
-	inlined_vector(const Container& els) : inlined_vector(els.begin(), (int) els.size()) {
-		assert_integrity();
+	inlined_vector(const Container& els) : inlined_vector(els.begin(), els.size()) {
+		inlined_vector<T, Capacity, CanExpand>::assert_integrity();
 	}
 
-	inlined_vector(std::initializer_list<T> els) : inlined_vector(els.begin(), (int) els.size()) {
-		assert_integrity();
+	inlined_vector(std::initializer_list<T> els) : inlined_vector(els.begin(), els.size()) {
+		inlined_vector<T, Capacity, CanExpand>::assert_integrity();
 	}
 
     virtual ~inlined_vector() = default;
 
 	constexpr static inline size_type max_size() { return Capacity; }
 
-	inline virtual bool can_expand() const { return false; }
+	virtual bool can_expand() const { return false; }
 
-	inline void clear() { 
+	virtual void clear() { 
         size_ = 0;
         data_internal_.clear();
 		assert_integrity();
     }
 
-	inline size_type size() const { return size_; }
+	size_type size() const { return size_; }
 
-	inline bool empty() const { return size_ == 0; }
+	bool empty() const { return size_ == 0; }
 
-	inline bool full() const { return size_ >= max_size(); }
+	bool full() const { return size_ >= max_size(); }
 
-	inline virtual bool expanded() const { return false; }
+	virtual bool expanded() const { return false; }
 
-    inline void push_back(const T& value) {
+	virtual void push_back(const T& value) {
         // NB: Need this to support aggregates
         if (size_ >= max_size()) {
 			length_error("inlined_vector::push_back exceeded capacity");
@@ -267,7 +266,7 @@ public:
     }
 
 	template <typename U>
-	inline void push_back(U&& value) {
+	void push_back(U&& value) {
 		if (size_ >= max_size()) {
 			length_error("inlined_vector::push_back exceeded capacity");
 		}
@@ -278,7 +277,7 @@ public:
 		}
 	}
 
-	template<class... Args> inline void emplace_back(Args&&... args) {
+	template<class... Args> void emplace_back(Args&&... args) {
 		if (size_ >= max_size()) {
 			length_error("inlined_vector::emplace_back exceeded capacity");
 		}
@@ -296,7 +295,7 @@ public:
 		assert_integrity();
 	}
 
-	void extend(std::initializer_list<T> other) {
+	virtual void extend(std::initializer_list<T> other) {
 		for (auto v : other) {
 			push_back(std::move(v));
 		}
@@ -361,7 +360,7 @@ public:
 	const_reverse_iterator rbegin() const { return rend() - size_; }
 	virtual const_reverse_iterator rend() const { return data_internal_.rend(); }
 
-	iterator erase(const_iterator it) {
+	virtual iterator erase(const_iterator it) {
 		validate_iterator(it);
 
 		if (it == end() || empty()) {
@@ -383,7 +382,7 @@ public:
 		return begin() + i;
 	}
 
-	iterator insert(iterator it, const_reference value) {
+	virtual iterator insert(iterator it, const_reference value) {
 		validate_iterator(it);
 
 		if (full()) {
@@ -414,7 +413,7 @@ public:
 		}
 	}
 
-	inline bool contains(const_reference value) const {
+	bool contains(const_reference value) const {
 		auto begin_ = begin();
 		auto end_ = end();
 		return std::find(begin_, end_, value) != end_;
@@ -443,7 +442,7 @@ protected:
 			data_internal_.emplace_back(std::move(*it));
 		}
 
-		assert_integrity();
+		inlined_vector<T, Capacity, CanExpand>::assert_integrity();
 	}
 
 	// Helper constructor for sub-class
@@ -453,21 +452,21 @@ protected:
 		assert(!inlined || size_ == data_internal_.size());
     }
 
-	inline reference element(size_type index) { return *std::next(begin(), index); }
+	reference element(size_type index) { return *std::next(begin(), index); }
 
-	inline const_reference element(size_type index) const { return *std::next(begin(), index); }
+	const_reference element(size_type index) const { return *std::next(begin(), index); }
 
 	size_type iterator_index(const_iterator it) const {
 		auto nit = begin();
 		for (size_type i = 0; i < size_; i++) {
 			if (nit == it)
 				return i;
-			nit++;
+			++nit;
 		}
 		return size_;
 	}
 
-	inline void validate_iterator(const_iterator it) {
+	void validate_iterator(const_iterator it) {
 #ifndef NDEBUG
 		if (it < begin() || it > end()) {
 			out_of_range_error("inlined_vector::validate_iterator invalid iterator");
@@ -501,7 +500,7 @@ public:
 		assert(size_ == data_internal_.size());
 	}
 #else 
-	void assert_integrity() const {}
+	void assert_integrity() {}
 #endif 
 
 	template<typename T_, int Capacity_>
@@ -574,7 +573,7 @@ public:
 	}
 
 	inlined_vector(std::initializer_list<T> els)
-		: inlined_vector(els.begin(), els.end(), (int) els.size()) {
+		: inlined_vector(els.begin(), els.end(), els.size()) {
 		assert_integrity();	
 	}
 
@@ -612,16 +611,16 @@ public:
 		assert_integrity();
 	}
 
-	void extend(std::initializer_list<T> other) {
+	void extend(std::initializer_list<T> other) override {
 		for (auto v : other) {
 			push_back(std::move(v));
 		}
 		assert_integrity();
 	}
 
-	inline virtual bool can_expand() const override final { return true; }
+	bool can_expand() const override final { return true; }
 
-	inline void clear() {
+	void clear() override final {
         if (inlined_) {
             base_t::clear();
         }
@@ -633,9 +632,9 @@ public:
 		}
 	}
 
-	inline bool expanded() const final override { return !inlined_; }
+	bool expanded() const final override { return !inlined_; }
 
-    inline void push_back(const T& value) {
+    void push_back(const T& value) final override {
         // NB: Need this overload to support aggregates in the parameter
         if (inlined_ && size_ >= max_size()) {
 			grow_to_external_storage();
@@ -646,14 +645,14 @@ public:
 		}
 		else {
 			data_external_.push_back(value);
-			size_++;
+			++size_;
 		}
 
 		assert_integrity();
     }
 
 	template <typename U>
-	inline void push_back(U&& value) {
+	void push_back(U&& value) {
 		if (inlined_ && size_ >= max_size()) {
 			grow_to_external_storage();
 		}
@@ -663,13 +662,13 @@ public:
 		}
 		else {
 			data_external_.push_back(std::forward<U>(value));
-			size_++;
+			++size_;
 		}
 
 		assert_integrity();
 	}
 
-	template<class... Args> inline void emplace_back(Args&&... args) {
+	template<class... Args> void emplace_back(Args&&... args) {
 		if (inlined_ && size_ >= max_size()) {
 			grow_to_external_storage();
 		}
@@ -679,13 +678,13 @@ public:
 		}
 		else {
 			data_external_.emplace_back(std::forward<Args>(args)...);
-			size_++;
+			++size_;
 		}
 
 		assert_integrity();
 	}
 
-	inline void pop_back() override final {
+	void pop_back() override final {
 		if (!empty()){
             if (inlined_){
                 base_t::pop_back();
@@ -693,7 +692,7 @@ public:
             else {
                 // TODO: become inlined again if small enough?
                 data_external_.pop_back();
-			    size_--;
+			    --size_;
             }
 
 			assert_integrity();
@@ -713,7 +712,7 @@ public:
 		return inlined_ ? data_internal_.rend() : unwrap(data_external_.rend());
 	}
 
-	iterator erase(const_iterator it) {
+	iterator erase(const_iterator it) override final {
 		base_t::validate_iterator(it);
 
 		if (it == end() || empty()) {
@@ -726,16 +725,16 @@ public:
 				out_of_range_error("inlined_vector::erase invalid iterator");
 				return end();
 			}
-			for (size_type j = i; j < size_ - 1; j++) {
+			for (size_type j = i; j < size_ - 1; ++j) {
 				element(j) = std::move(element(j + 1));
 			}
             data_internal_.pop_back();
-			size_--;
+			--size_;
 			assert_integrity();
 			return begin() + i;
 		}
 		else {
-			size_--;
+			--size_;
 			// Note: a bug in gcc 4.8.4 means we have to use a non-const iterator here
 			auto vit = std::next(data_external_.begin(), std::distance(cbegin(), it));
             auto res = unwrap(data_external_.erase(vit));
@@ -744,7 +743,7 @@ public:
 		}
 	}
 
-	iterator insert(iterator it, const_reference value) {
+	iterator insert(iterator it, const_reference value) final override {
 		base_t::validate_iterator(it);
 
 		if (inlined_ && size_ < max_size()) {
@@ -762,7 +761,7 @@ public:
 			return end();
 		}
 		else {
-			size_++;
+			++size_;
 			// NB: dataVector may not have a T* iterator
 			auto vit = std::next(data_external_.begin(), std::distance(begin(), it));
 			auto res = unwrap(data_external_.insert(vit, value));
@@ -795,12 +794,12 @@ protected:
 
 	// Sometimes std::vector<T>::iterator isn't a T* (e.g., in clang/libcxx)
 	// so we need to unwrap the iterator
-	inline iterator unwrap(typename std::vector<T>::iterator it) const { return &*it; }
-	inline const_iterator unwrap(typename std::vector<T>::const_iterator it) const { return &*it; }
-	inline reverse_iterator unwrap(typename std::vector<T>::reverse_iterator it) const {
+	iterator unwrap(typename std::vector<T>::iterator it) const { return &*it; }
+	const_iterator unwrap(typename std::vector<T>::const_iterator it) const { return &*it; }
+	reverse_iterator unwrap(typename std::vector<T>::reverse_iterator it) const {
 		return reverse_iterator(&*it);
 	}
-	inline const_reverse_iterator unwrap(typename std::vector<T>::const_reverse_iterator it) const {
+	const_reverse_iterator unwrap(typename std::vector<T>::const_reverse_iterator it) const {
 		return const_reverse_iterator(&*it);
 	}
 
@@ -824,16 +823,14 @@ public:
 			assert(size_ == data_external_.size());
 		}
 	}
-#else 
-	void assert_integrity() const {}
-#endif 
+#endif
 
 	template<typename T_, int Capacity_>
 	friend std::ostream& operator<<(std::ostream& out, const inlined_vector<T_, Capacity_, true>& vector);
 };
 
 template<typename T, int Capacity>
-inline std::ostream& operator<<(std::ostream& out, const inlined_vector<T, Capacity, false>& vector) {
+std::ostream& operator<<(std::ostream& out, const inlined_vector<T, Capacity, false>& vector) {
 	out << "inlined_vector ";
 	out << "(inlined):  [";
 	if (vector.empty())
@@ -850,7 +847,7 @@ inline std::ostream& operator<<(std::ostream& out, const inlined_vector<T, Capac
 }
 
 template<typename T, int Capacity>
-inline std::ostream& operator<<(std::ostream& out, const inlined_vector<T, Capacity, true>& vector) {
+std::ostream& operator<<(std::ostream& out, const inlined_vector<T, Capacity, true>& vector) {
 	out << "inlined_vector ";
 	if (vector.inlined_)
 		out << "(inlined):  [";
