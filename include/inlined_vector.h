@@ -189,7 +189,7 @@ namespace detail {
 
     template<class T_>
     using const_ref_if_copyable =
-        enable_if_t<std::is_copy_constructible<T_>::value, const T_&>>;
+        enable_if_t<std::is_copy_constructible<T_>::value, const T_&>;
 }
 
 // An inlined_vector is a fixed-size array with a vector-like interface
