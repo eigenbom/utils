@@ -521,6 +521,7 @@ public:
 	using typename base_t::reverse_iterator;
 	using typename base_t::const_reverse_iterator;
 	using typename base_t::size_type;
+    using base_t::assert_integrity;
 	using base_t::cbegin;
 	using base_t::element;
 	using base_t::empty;
