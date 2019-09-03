@@ -621,7 +621,7 @@ public:
 	}
 
     template <typename T_ = T>
-	void extend(detail::initializer_list_of_copyable<T_> other) override {
+	void extend(detail::initializer_list_of_copyable<T_> other) {
 		for (auto v : other) {
 			push_back(std::move(v));
 		}
