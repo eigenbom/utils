@@ -1,4 +1,8 @@
 language: cpp
+compiler: gcc
 script: 
 - make 
 - make test
+env:
+  global:
+    - CXXFLAGS='-fpermissive'
