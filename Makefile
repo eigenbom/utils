@@ -4,7 +4,7 @@ INCLUDE_DIR = include
 BIN_DIR_ROOT = bin
 OBJ_DIR_ROOT = obj
 EXAMPLES_DIR = examples
-CXXFLAGS = -std=c++11 -Wall
+CXXFLAGS = -fpermissive -std=c++11 -Wall
 
 DEBUG ?= 0
 ifeq ($(DEBUG), 1)
