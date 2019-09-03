@@ -395,7 +395,7 @@ public:
 	}
 
     template <typename T_=T>
-	iterator insert(iterator it, const_ref_if_copyable<T_> value) {
+	iterator insert(iterator it, detail::const_ref_if_copyable<T_> value) {
 		validate_iterator(it);
 
 		if (full()) {
@@ -759,7 +759,7 @@ public:
 	}
 
     template <typename T_=T>
-	iterator insert(iterator it, const_ref_if_copyable<T_> value) {
+	iterator insert(iterator it, detail::const_ref_if_copyable<T_> value) {
 		base_t::validate_iterator(it);
 
 		if (inlined_ && size_ < max_size()) {
