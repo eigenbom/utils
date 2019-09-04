@@ -33,7 +33,7 @@ namespace detail {
 	public:
 		static_vector() = default;
 
-		static_vector(size_type count, const T& value = T()){
+		explicit static_vector(size_type count, const T& value = T()){
 			size_ = count;
 			for(size_type i = 0; i < size_; ++i) {
 				new (data_+i) T(value);
@@ -47,7 +47,7 @@ namespace detail {
 			}
 		}
 
-		static_vector(static_vector&& other){
+		static_vector(static_vector&& other) noexcept {
 			size_ = other.size_;
 			for(size_type i = 0; i < size_; ++i) {
 				new (data_+i) T(std::move(other[i]));
@@ -66,7 +66,7 @@ namespace detail {
 			return *this;
 		}
 
-		static_vector& operator=(static_vector&& other){
+		static_vector& operator=(static_vector&& other) noexcept {
 			if (other.data_ == data_) return *this;
 
 			destroy_all();
@@ -82,9 +82,9 @@ namespace detail {
 			destroy_all();
 		}
 
-		inline size_type size() const { return size_; }
+		size_type size() const { return size_; }
 
-		constexpr static inline size_type max_size() { return Capacity; }
+		constexpr static size_type max_size() { return Capacity; }
 
         void clear(){
 			destroy_all();
@@ -163,7 +163,7 @@ namespace detail {
 			return reinterpret_cast<const T*>(rt);
 		}
 
-		inline void destroy(raw_type* rt){
+		void destroy(raw_type* rt){
 			launder(rt)->~T();
 		}
 
@@ -236,24 +236,24 @@ public:
     }
 
 	template<class Container>
-	inlined_vector(const Container& els) : inlined_vector(els.begin(), els.size()) {
+	inlined_vector(const Container& els) : inlined_vector(els.begin(), static_cast<int>(els.size())) {
 		inlined_vector<T, Capacity, CanExpand>::assert_integrity();
 	}
 
-	inlined_vector(std::initializer_list<T> els) : inlined_vector(els.begin(), els.size()) {
+	inlined_vector(std::initializer_list<T> els) : inlined_vector(els.begin(), static_cast<int>(els.size())) {
 		inlined_vector<T, Capacity, CanExpand>::assert_integrity();
 	}
 
     virtual ~inlined_vector() = default;
 
-	constexpr static inline size_type max_size() { return Capacity; }
+	constexpr static size_type max_size() { return Capacity; }
 
 	virtual bool can_expand() const { return false; }
 
 	virtual void clear() { 
         size_ = 0;
         data_internal_.clear();
-		assert_integrity();
+		this->assert_integrity();
     }
 
 	size_type size() const { return size_; }
@@ -264,7 +264,8 @@ public:
 
 	virtual bool expanded() const { return false; }
 
-	virtual void push_back(const T& value) {
+	template <typename T_ = T>
+	void push_back(detail::const_ref_if_copyable<T_> value) {
         // NB: Need this to support aggregates
         if (size_ >= max_size()) {
 			length_error("inlined_vector::push_back exceeded capacity");
@@ -272,7 +273,7 @@ public:
 		else {
 			data_internal_.push_back(value);
 			size_++;
-			assert_integrity();
+			this->assert_integrity();
 		}
     }
 
@@ -284,7 +285,7 @@ public:
 		else {
 			data_internal_.push_back(std::forward<U>(value));
 			size_++;
-			assert_integrity();
+			this->assert_integrity();
 		}
 	}
 
@@ -295,7 +296,7 @@ public:
 		else {
 			data_internal_.emplace_back(std::forward<Args>(args)...);
 			size_++;
-			assert_integrity();
+			this->assert_integrity();
 		}
 	}
 
@@ -303,7 +304,7 @@ public:
 		for (auto v : other) {
 			push_back(std::move(v));
 		}
-		assert_integrity();
+		this->assert_integrity();
 	}
 
     template <typename T_ = T>
@@ -311,40 +312,40 @@ public:
 		for (auto v : other) {
 			push_back(std::move(v));
 		}
-		assert_integrity();
+		this->assert_integrity();
 	}
 
-	inline virtual void pop_back() {
+	virtual void pop_back() {
 		if (!empty()){
             data_internal_.pop_back();
             size_--;
-			assert_integrity();
+			this->assert_integrity();
         }
 	}
 
-	inline const_reference back() const {
+	const_reference back() const {
 		if (!empty()) {
 			return *std::prev(end());
 		}
 		return data_internal_[0];
 	}
 
-	inline reference back() { return const_cast<reference>(static_cast<const inlined_vector*>(this)->back()); }
+	reference back() { return const_cast<reference>(static_cast<const inlined_vector*>(this)->back()); }
 
-	inline const_reference front() const {
+	const_reference front() const {
 		if (!empty()) {
 			return *begin();
 		}
 		return data_internal_[0];
 	}
 
-	inline reference front() { return const_cast<reference>(static_cast<const inlined_vector*>(this)->front()); }
+	reference front() { return const_cast<reference>(static_cast<const inlined_vector*>(this)->front()); }
 
-	inline reference operator[](size_type i) { return element(i); }
+	reference operator[](size_type i) { return element(i); }
 
-	inline const_reference operator[](size_type i) const { return element(i); }
+	const_reference operator[](size_type i) const { return element(i); }
 
-	inline const_reference at(size_type i) const {
+	const_reference at(size_type i) const {
 		if (i >= 0 && i < size_) {
 			return element(i);
 		}
@@ -353,7 +354,7 @@ public:
 		}
 	}
 
-	inline reference at(size_type i) {
+	reference at(size_type i) {
 		return const_cast<reference>(static_cast<const inlined_vector*>(this)->at(i));
 	}
 
@@ -385,12 +386,12 @@ public:
 			out_of_range_error("inlined_vector::insert invalid iterator");
 			return end();
 		}
-		for (size_type j = i; j < size_ - 1; j++) {
+		for (size_type j = i; j < size_ - 1; ++j) {
 			element(j) = std::move(element(j + 1));
 		}
         data_internal_.pop_back();
 		size_--;
-		assert_integrity();
+		this->assert_integrity();
 		return begin() + i;
 	}
 
@@ -405,7 +406,7 @@ public:
 
 		if (it == end()) {
 			push_back(value);
-			assert_integrity();
+			this->assert_integrity();
 			return std::prev(end(), 1);
 		}
 		else {
@@ -421,7 +422,7 @@ public:
 			}
 			element(i) = value;
 			size_++;
-			assert_integrity();
+			this->assert_integrity();
 			return std::next(begin(), i);
 		}
 	}
@@ -508,13 +509,11 @@ protected:
 	}
 
 public:
-#ifndef NDEBUG
 	virtual void assert_integrity() const {
+#ifndef NDEBUG
 		assert(size_ == data_internal_.size());
-	}
-#else 
-	void assert_integrity() const {}
 #endif 
+	}
 
 	template<typename T_, int Capacity_>
 	friend std::ostream& operator<<(std::ostream& out, const inlined_vector<T_, Capacity_, false>& vector);
@@ -560,17 +559,17 @@ public:
 			inlined_ = false;
 		}
 
-		assert_integrity();
+		this->assert_integrity();
 	}
 
 	template<int Capacity_, bool CanExpand_>
 	inlined_vector(const inlined_vector<T, Capacity_, CanExpand_>& other)
 		: inlined_vector(other.begin(), other.end(), other.size()) {
 		other.assert_integrity();
-		assert_integrity();
+		this->assert_integrity();
 	}
 
-	inlined_vector(inlined_vector&& other)
+	inlined_vector(inlined_vector&& other) noexcept
 		: base_t(std::move(other.data_internal_), other.size_, other.inlined_),
 		data_external_(std::move(other.data_external_)), 
 		inlined_(other.inlined_) {
@@ -578,25 +577,25 @@ public:
 		other.size_ = 0;
 
 		other.assert_integrity();
-		assert_integrity();
+		this->assert_integrity();
 	}
 
 	template<class Container>
-	inlined_vector(const Container& els) : inlined_vector(els.begin(), els.end(), els.size()) {
-		assert_integrity();
+	inlined_vector(const Container& els) : inlined_vector(els.begin(), els.end(), static_cast<int>(els.size())) {
+		this->assert_integrity();
 	}
 
 	inlined_vector(std::initializer_list<T> els)
-		: inlined_vector(els.begin(), els.end(), els.size()) {
-		assert_integrity();	
+		: inlined_vector(els.begin(), els.end(), static_cast<int>(els.size())) {
+		this->assert_integrity();
 	}
 
 	inlined_vector(const inlined_vector& other)
 		: inlined_vector(other.begin(), other.end(), other.size()) {
-		assert_integrity();
+		this->assert_integrity();
 	}
 
-	inlined_vector& operator=(inlined_vector&& other) {
+	inlined_vector& operator=(inlined_vector&& other) noexcept {
 		inlined_ = other.inlined_;
 		size_ = other.size_;
 		data_internal_ = std::move(other.data_internal_);
@@ -604,7 +603,7 @@ public:
 		other.inlined_ = true;
 		other.size_ = 0;
 		other.assert_integrity();
-		assert_integrity();
+		this->assert_integrity();
 		return *this;
 	}
 
@@ -614,7 +613,7 @@ public:
 		data_internal_ = other.data_internal_;
 		data_external_ = other.data_external_;
 		other.assert_integrity();
-		assert_integrity();
+		this->assert_integrity();
 		return *this;
 	}
 
@@ -622,7 +621,7 @@ public:
 		for (auto v : other) {
 			push_back(std::move(v));
 		}
-		assert_integrity();
+		this->assert_integrity();
 	}
 
     template <typename T_ = T>
@@ -630,7 +629,7 @@ public:
 		for (auto v : other) {
 			push_back(std::move(v));
 		}
-		assert_integrity();
+		this->assert_integrity();
 	}
 
 	bool can_expand() const override final { return true; }
@@ -643,13 +642,14 @@ public:
 			inlined_ = true;
             size_ = 0;
 			data_external_.clear();
-			assert_integrity();
+			this->assert_integrity();
 		}
 	}
 
 	bool expanded() const final override { return !inlined_; }
 
-    void push_back(const T& value) final override {
+	template <typename T_ = T>
+	void push_back(detail::const_ref_if_copyable<T_> value) {
         // NB: Need this overload to support aggregates in the parameter
         if (inlined_ && size_ >= max_size()) {
 			grow_to_external_storage();
@@ -663,7 +663,7 @@ public:
 			++size_;
 		}
 
-		assert_integrity();
+		this->assert_integrity();
     }
 
 	template <typename U>
@@ -680,7 +680,7 @@ public:
 			++size_;
 		}
 
-		assert_integrity();
+		this->assert_integrity();
 	}
 
 	template<class... Args> void emplace_back(Args&&... args) {
@@ -696,7 +696,7 @@ public:
 			++size_;
 		}
 
-		assert_integrity();
+		this->assert_integrity();
 	}
 
 	void pop_back() override final {
@@ -710,7 +710,7 @@ public:
 			    --size_;
             }
 
-			assert_integrity();
+			this->assert_integrity();
 		}
 	}
 
@@ -745,7 +745,7 @@ public:
 			}
             data_internal_.pop_back();
 			--size_;
-			assert_integrity();
+			this->assert_integrity();
 			return begin() + i;
 		}
 		else {
@@ -753,7 +753,7 @@ public:
 			// Note: a bug in gcc 4.8.4 means we have to use a non-const iterator here
 			auto vit = std::next(data_external_.begin(), std::distance(cbegin(), it));
             auto res = unwrap(data_external_.erase(vit));
-			assert_integrity();
+			this->assert_integrity();
 			return res;
 		}
 	}
@@ -773,7 +773,7 @@ public:
 
 		if (it == end()) {
 			push_back(value);
-			assert_integrity();
+			this->assert_integrity();
 			return end();
 		}
 		else {
@@ -781,7 +781,7 @@ public:
 			// NB: dataVector may not have a T* iterator
 			auto vit = std::next(data_external_.begin(), std::distance(begin(), it));
 			auto res = unwrap(data_external_.insert(vit, value));
-			assert_integrity();
+			this->assert_integrity();
             return res;
 		}
 	}
@@ -805,7 +805,7 @@ protected:
 			inlined_ = false;
 		}
 
-		assert_integrity();
+		this->assert_integrity();
 	}
 
 	// Sometimes std::vector<T>::iterator isn't a T* (e.g., in clang/libcxx)
@@ -824,12 +824,12 @@ protected:
 		data_internal_.emplace_into(data_external_);
 		inlined_ = false;
 
-		assert_integrity();
+		this->assert_integrity();
 	}
 
 public:
+	void assert_integrity() const override final {
 #ifndef NDEBUG
-	virtual void assert_integrity() const override final {
 		if (inlined_) {
 			assert(size_ == data_internal_.size());
 			assert(0 == data_external_.size());
@@ -838,8 +838,8 @@ public:
 			assert(0 == data_internal_.size());
 			assert(size_ == data_external_.size());
 		}
-	}
 #endif
+	}
 
 	template<typename T_, int Capacity_>
 	friend std::ostream& operator<<(std::ostream& out, const inlined_vector<T_, Capacity_, true>& vector);
