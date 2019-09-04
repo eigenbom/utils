@@ -222,7 +222,7 @@ public:
 		for (auto& s : storages_) destroy(s);
 	}
 
-	std::pair<bool, size_type> attempt_allocation(size_type max_new_objects, std::function<void(const char* message)> errorCallback, std::function<void(size_type)> allocationErrorCallback) {
+	std::pair<bool, size_type> attempt_allocation(size_type max_new_objects, std::function<void(const char* message)>, std::function<void(size_type)>) {
 		if (max_new_objects > allocation_size_) {
 			return { false, 0 };
 		}
@@ -233,7 +233,7 @@ public:
 	}
 
 	void allocate() {
-		if (storages_.size() == max_pages_) {
+		if (static_cast<int>(storages_.size()) == max_pages_) {
 			throw std::length_error("storage_pool_fixed exceeded page count");
 		}
 		const size_type offset = size_;

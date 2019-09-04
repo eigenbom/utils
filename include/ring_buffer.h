@@ -31,9 +31,9 @@ public:
     using size_type       = typename ring_buffer::size_type;
 
 public:
-    ring_buffer_iterator(ring_buffer& ring):ring_(ring), i_(ring.count()),offset_(ring.start()) {}
+    ring_buffer_iterator(ring_buffer& ring):ring_(ring), offset_(ring.start()),i_(ring.count()) {}
     ring_buffer_iterator(ring_buffer& ring, size_type offset):ring_(ring),offset_(offset){}		
-    ring_buffer_iterator& operator++(){ i_++; return *this; }
+    ring_buffer_iterator& operator++(){ ++i_; return *this; }
     ring_buffer_iterator operator++(int){ ring_buffer_iterator tmp(*this); ++(*this); return tmp; }
     ring_buffer_iterator& operator--(){ i_ = (i_ + ring_.max_size() - 1) % ring_.max_size(); return *this; }
     ring_buffer_iterator operator--(int){ ring_buffer_iterator tmp(*this); --(*this); return tmp; }
@@ -59,7 +59,7 @@ public:
 public:
     ring_buffer_const_iterator(const ring_buffer& ring):ring_(ring), i_(ring.count()), offset_(ring.start()) {}
     ring_buffer_const_iterator(const ring_buffer& ring, size_type offset):ring_(ring),offset_(offset){}		
-    ring_buffer_const_iterator(const ring_buffer_iterator<ring_buffer>& it):ring_(it.ring_), i_(it.i_), offset_(it.offset_){}        
+    ring_buffer_const_iterator(const ring_buffer_iterator<ring_buffer>& it):ring_(it.ring_), offset_(it.offset_), i_(it.i_){}        
     ring_buffer_const_iterator& operator++(){ i_++; return *this; }
     ring_buffer_const_iterator operator++(int){ ring_buffer_const_iterator tmp(*this); ++(*this); return tmp; }
     ring_buffer_const_iterator& operator--(){ i_ = (i_ + ring_.max_size() - 1) % ring_.max_size(); return *this; }
@@ -160,7 +160,6 @@ public:
 		}
 		else {
             throw std::out_of_range("ring_buffer: accessing invalid element");
-			return data_[0];
 		}
 	}
 
@@ -199,8 +198,7 @@ protected:
 	friend std::ostream& operator<<(std::ostream&, const ring_buffer<T_,Capacity_>&);
 };
 
-template<typename T_, int Capacity_>
-inline std::ostream& operator<<(std::ostream& out,
+template<typename T_, int Capacity_> std::ostream& operator<<(std::ostream& out,
 								const ring_buffer<T_,Capacity_>& ring) {
 	out << "ring_buffer<" << Capacity_ << "> {";
 	if (ring.empty())

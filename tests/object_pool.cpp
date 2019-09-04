@@ -29,12 +29,12 @@ static std::ostringstream s_debug_log_stream;
 
 namespace bsp {
     template <typename T, typename ID, class Policy>
-    void log_error(const object_pool<T, ID, Policy>& pool, const char* message){
+    void log_error(const object_pool<T, ID, Policy>&, const char* message){
         std::cerr << "Error: object_pool<" << type_name<T>::get() << ">:" << message << "\n";
     }
 
     template <typename T, typename ID, class Policy>
-    void log_allocation(const object_pool<T, ID, Policy>& pool, int count, int bytes){
+    void log_allocation(const object_pool<T, ID, Policy>&, int count, int bytes){
         if (s_debug_log_allocations){
             if (bytes>0){
                 s_debug_log_stream << "Memory: storage_pool<" << type_name<T>::get() << "> allocated " << (bytes / 1024) << "kB (" << count << " objects)";
@@ -303,7 +303,10 @@ TEST_CASE("storage_pool_fixed (benchmarks)", "[!benchmark][storage_pool_fixed]")
 		}
 
 		for (int i = 0; i < page_size * num_pages; ++i) {
+#pragma warning( push )
+#pragma warning( disable : 4189 ) // local variable is initialized but not referenced
 			volatile int x = pool[i];
+#pragma warning( pop )
 		}
 	}
 }
@@ -326,7 +329,10 @@ TEST_CASE("storage_pool (benchmarks)", "[!benchmark][storage_pool]") {
 		}
 
 		for (int i = 0; i < page_size * num_pages; ++i) {
+#pragma warning( push )
+#pragma warning( disable : 4189 ) // local variable is initialized but not referenced
 			volatile int x = pool[i];
+#pragma warning( pop )
 		}
 	}
 }
@@ -765,7 +771,10 @@ TEST_CASE("object_pool (benchmarks)", "[!benchmark]"){
 			pool.construct(i);
 
 		for (int i = 0; i < page_size * num_pages; ++i) {
+#pragma warning( push )
+#pragma warning( disable : 4189 ) // local variable is initialized but not referenced
 			volatile int x = pool[i];
+#pragma warning( pop )
 		}
 	}
 }
